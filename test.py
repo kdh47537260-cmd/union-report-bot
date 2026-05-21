@@ -175,8 +175,8 @@ def fetch_unionpos_account(acc):
         print("UnionPOS 조회 실패:", e)
         return result
 
-finally:
-    driver.quit()
+    finally:
+        driver.quit()
 
 
 def fetch_menu_top_sales(acc):
