@@ -51,20 +51,23 @@ def get_driver():
     options = Options()
 
     options.add_argument("--headless=new")
+    options.add_argument("--window-size=1280,1000")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
 
     return webdriver.Chrome(options=options)
 
-
-    def clean_store_name(name):
-        name = name.replace(" ","")
+    
+def clean_store_name(name):
+    name = name.replace(" ", "")
 
     if "양재" in name:
         return "유월의보리 양재점"
+
     if "신내" in name:
         return "유월의보리 신내점"
+
     if "신흥" in name or "성남" in name:
         return "유월의보리 성남신흥점"
 
