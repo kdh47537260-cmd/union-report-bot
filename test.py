@@ -46,7 +46,6 @@ REVIEW_URLS = {
 
 
 from selenium.webdriver.chrome.options import Options
-import os
 
 def get_driver():
     options = Options()
