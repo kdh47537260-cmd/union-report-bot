@@ -10,7 +10,6 @@ BOT_TOKEN = "8886052539:AAGrUs30DNxPsyRtL7RlDHOdeQGSDwV7cUk"
 
 CHAT_IDS = [
     "1490548765",   # 도현
-    "8650028323",   # 대표님
 ]
 
 today = datetime.now()
