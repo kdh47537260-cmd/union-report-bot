@@ -215,7 +215,8 @@ def fetch_menu_top_sales(acc):
 
             cells = row.find_elements(By.TAG_NAME, "td")
             values = [cell.text.strip() for cell in cells]
-
+            print("MENU_ROW:", values)
+            
             if len(values) < 5:
                 continue
 
@@ -290,7 +291,8 @@ def fetch_item2_top_sales(acc):
         for row in rows:
             cells = row.find_elements(By.TAG_NAME, "td")
             values = [cell.text.strip() for cell in cells]
-
+            print("ITEM2_ROW:", values)
+            
             if len(values) < 5:
                 continue
 
@@ -718,7 +720,7 @@ for store_name in store_order:
     for idx, review in enumerate(reviews, start=1):
         review_text += f"\n{idx}. {review}"
 
-    menu_text = "메뉴 TOP5: 데이터 없음"
+    menu_text = "판매 메뉴: 데이터 없음"
 
     if store_name in menu_top_data:
         sorted_items = sorted(
@@ -729,9 +731,9 @@ for store_name in store_order:
 
         sales_int = to_int(data["total_sales"])
 
-        menu_lines = ["메뉴 TOP5"]
+        menu_lines = ["판매 메뉴"]
 
-        for idx, item in enumerate(sorted_items[:5], start=1):
+        for idx, item in enumerate(sorted_items, start=1):
             ratio = (item["sales"] / sales_int * 100) if sales_int else 0
 
             menu_lines.append(
