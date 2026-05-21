@@ -58,8 +58,8 @@ def get_driver():
     return webdriver.Chrome(options=options)
 
 
-   def clean_store_name(name):
-    name = name.replace(" ", "")
+    def clean_store_name(name):
+        name = name.replace(" ","")
 
     if "양재" in name:
         return "유월의보리 양재점"
