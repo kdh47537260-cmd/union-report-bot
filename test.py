@@ -2,6 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
 from datetime import datetime, timedelta
 import requests
 import time
@@ -51,12 +52,17 @@ import os
 def get_driver():
     options = Options()
 
-    options.add_argument("--headless")
+    options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
 
-    return webdriver.Chrome(options=options)
+    service = Service("/nix/store/chromedriver/bin/chromedriver")
+
+    return webdriver.Chrome(
+        service=service,
+        options=options
+    )
 
 def clean_store_name(name):
     name = name.replace(" ", "")
