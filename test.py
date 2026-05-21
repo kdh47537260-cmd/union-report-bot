@@ -181,7 +181,8 @@ def fetch_unionpos_account(acc):
 
 def fetch_menu_top_sales(acc):
 
-    def fetch_item2_top_sales(acc):
+def fetch_item2_top_sales(acc):
+
     driver = get_driver()
     result = {}
 
