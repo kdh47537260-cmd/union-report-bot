@@ -1,7 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from datetime import datetime, timedelta
 import requests
 import time
@@ -44,8 +43,6 @@ REVIEW_URLS = {
 }
 
 
-from selenium.webdriver.chrome.options import Options
-
 def get_driver():
     options = Options()
 
@@ -57,16 +54,16 @@ def get_driver():
 
     return webdriver.Chrome(options=options)
 
-    
+
 def clean_store_name(name):
     name = name.replace(" ", "")
 
+    if "본점" in name:
+        return "유월의보리 본점"
     if "양재" in name:
         return "유월의보리 양재점"
-
     if "신내" in name:
         return "유월의보리 신내점"
-
     if "신흥" in name or "성남" in name:
         return "유월의보리 성남신흥점"
 
@@ -74,7 +71,15 @@ def clean_store_name(name):
 
 
 def to_int(value):
-    return int(value.replace(",", "").strip()) if value and value.replace(",", "").strip().isdigit() else 0
+    if value is None:
+        return 0
+
+    clean = str(value).replace(",", "").replace("원", "").strip()
+
+    if clean.startswith("-"):
+        return -int(clean[1:]) if clean[1:].isdigit() else 0
+
+    return int(clean) if clean.isdigit() else 0
 
 
 def fmt(value):
@@ -173,6 +178,106 @@ def fetch_unionpos_account(acc):
     except Exception as e:
         print("UnionPOS 조회 실패:", e)
         return result
+
+    finally:
+        driver.quit()
+
+
+def fetch_menu_top_sales(acc):
+    driver = get_driver()
+    result = {}
+
+    try:
+        driver.get("https://asp2.unionpos.co.kr")
+        time.sleep(2)
+
+        driver.find_element(By.ID, "userId").send_keys(acc["id"])
+        driver.find_element(By.ID, "password").send_keys(acc["pw"])
+        driver.find_element(By.ID, "btnLogin").click()
+        time.sleep(3)
+
+        driver.get("https://asp2.unionpos.co.kr/v2/sales/product/storeItem")
+        time.sleep(3)
+
+        driver.execute_script(f"""
+        document.getElementById('startDate').removeAttribute('readonly');
+        document.getElementById('startDate').value = '{yesterday}';
+
+        document.getElementById('endDate').removeAttribute('readonly');
+        document.getElementById('endDate').value = '{yesterday}';
+
+        document.getElementById('pageSize').value = '100';
+        """)
+
+        time.sleep(1)
+        driver.find_element(By.ID, "btnSearch").click()
+        time.sleep(5)
+
+        page = 1
+
+        while True:
+            rows = driver.find_elements(By.CSS_SELECTOR, "#tableList tbody tr")
+
+            for row in rows:
+                cells = row.find_elements(By.TAG_NAME, "td")
+                values = [cell.text.strip() for cell in cells]
+
+                # storeItem 컬럼 구조:
+                # 0 번호 / 1 매장명 / 2 분류명 / 3 상품코드 / 4 상품명 / 5 수량 / 6 매출금액 ...
+                if len(values) < 7:
+                    continue
+
+                if not values[0].isdigit():
+                    continue
+
+                try:
+                    store_name = clean_store_name(values[1])
+                    item_name = values[4]
+                    qty = to_int(values[5])
+                    sales = to_int(values[6])
+
+                    if not item_name or qty <= 0 or sales <= 0:
+                        continue
+
+                    if store_name not in result:
+                        result[store_name] = {}
+
+                    if item_name not in result[store_name]:
+                        result[store_name][item_name] = {
+                            "item": item_name,
+                            "qty": 0,
+                            "sales": 0,
+                        }
+
+                    result[store_name][item_name]["qty"] += qty
+                    result[store_name][item_name]["sales"] += sales
+
+                except Exception:
+                    continue
+
+            page += 1
+
+            next_page = driver.find_elements(
+                By.XPATH,
+                f"//a[@href='javascript:goPage({page})']"
+            )
+
+            if not next_page:
+                break
+
+            driver.execute_script(f"goPage({page});")
+            time.sleep(4)
+
+        final_result = {}
+
+        for store_name, item_map in result.items():
+            final_result[store_name] = list(item_map.values())
+
+        return final_result
+
+    except Exception as e:
+        print("메뉴 TOP 조회 실패:", e)
+        return {}
 
     finally:
         driver.quit()
@@ -300,11 +405,14 @@ def fetch_okpos():
         day_data = search_period(yesterday, yesterday)
         month_data = search_period(month_start, yesterday)
 
+        receipt_count = to_int(day_data["receipt_count"])
+        table_price = fmt(round(to_int(day_data["total_sales"]) / receipt_count)) if receipt_count else "0"
+
         return {
             "유월의보리 본점": {
                 "total_sales": day_data["total_sales"],
                 "receipt_count": day_data["receipt_count"],
-              "table_price": fmt(round(to_int(day_data["total_sales"]) / to_int(day_data["receipt_count"]))),
+                "table_price": table_price,
                 "month_sales": month_data["total_sales"],
             }
         }
@@ -450,6 +558,17 @@ all_store_data.update(fetch_okpos())
 for acc in union_accounts:
     all_store_data.update(fetch_unionpos_account(acc))
 
+menu_top_data = {}
+
+for acc in union_accounts:
+    account_menu_data = fetch_menu_top_sales(acc)
+
+    for store_name, items in account_menu_data.items():
+        if store_name not in menu_top_data:
+            menu_top_data[store_name] = []
+
+        menu_top_data[store_name].extend(items)
+
 review_data = fetch_reviews()
 
 report_lines = [
@@ -471,13 +590,36 @@ for store_name in store_order:
         report_lines.append(f"""
 [{store_name}]
 조회 실패 또는 데이터 없음
+
 {review_text}
 """)
         continue
 
-    receipt_count_int = int(data["receipt_count"].replace(",", ""))
+    receipt_count_int = to_int(data["receipt_count"])
+    sales_int = to_int(data["total_sales"])
     table_count = TABLE_COUNTS.get(store_name, 1)
     rotation = round(receipt_count_int / table_count, 1)
+    table_price = fmt(round(sales_int / receipt_count_int)) if receipt_count_int else "0"
+
+    menu_text = "메뉴 TOP5: 데이터 없음"
+
+    if store_name in menu_top_data:
+        sorted_items = sorted(
+            menu_top_data[store_name],
+            key=lambda x: x["sales"],
+            reverse=True
+        )
+
+        menu_lines = ["메뉴 TOP5"]
+
+        for idx, item in enumerate(sorted_items[:5], start=1):
+            ratio = (item["sales"] / sales_int * 100) if sales_int else 0
+
+            menu_lines.append(
+                f"{idx}. {item['item']} / {item['qty']}개 / {fmt(item['sales'])}원 / 매출비중 {ratio:.1f}%"
+            )
+
+        menu_text = "\n".join(menu_lines)
 
     reviews = review_data.get(store_name, [])
     review_text = f"전일 신규리뷰: {len(reviews)}건"
@@ -489,8 +631,10 @@ for store_name in store_order:
 [{store_name}]
 총매출: {data['total_sales']}원
 영수건수(회전수): {data['receipt_count']}건 ({rotation}회전)
-테이블단가: {data['table_price']}원
+테이블단가: {table_price}원
 월누적매출: {data['month_sales']}원
+
+{menu_text}
 
 {review_text}
 """)
