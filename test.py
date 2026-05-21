@@ -57,14 +57,9 @@ def get_driver():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
 
-    service = Service("/nix/store/chromedriver/bin/chromedriver")
+    return webdriver.Chrome(options=options)
 
-    return webdriver.Chrome(
-        service=service,
-        options=options
-    )
-
-def clean_store_name(name):
+   def clean_store_name(name):
     name = name.replace(" ", "")
 
     if "양재" in name:
