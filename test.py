@@ -45,9 +45,20 @@ REVIEW_URLS = {
 }
 
 
-def get_driver():
-    return webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+from selenium.webdriver.chrome.options import Options
 
+def get_driver():
+    options = Options()
+
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+
+    return webdriver.Chrome(
+        service=Service(ChromeDriverManager().install()),
+        options=options
+    )
 
 def clean_store_name(name):
     name = name.replace(" ", "")
