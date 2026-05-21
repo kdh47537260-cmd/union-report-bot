@@ -47,10 +47,16 @@ def get_driver():
     options = Options()
 
     options.add_argument("--headless=new")
-    options.add_argument("--window-size=1280,1000")
+    options.add_argument("--window-size=1440,1400")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
+    options.add_argument("--lang=ko-KR")
+    options.add_argument(
+        "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    )
 
     return webdriver.Chrome(options=options)
 
@@ -196,6 +202,13 @@ def fetch_menu_top_sales(acc):
         driver.find_element(By.ID, "btnLogin").click()
         time.sleep(3)
 
+        try:
+            selected_store_name = clean_store_name(
+                driver.find_element(By.CSS_SELECTOR, ".top-storeName").text.strip()
+            )
+        except Exception:
+            selected_store_name = ""
+
         driver.get("https://asp2.unionpos.co.kr/v2/sales/product/storeItem")
         time.sleep(3)
 
@@ -206,7 +219,9 @@ def fetch_menu_top_sales(acc):
         document.getElementById('endDate').removeAttribute('readonly');
         document.getElementById('endDate').value = '{yesterday}';
 
-        document.getElementById('pageSize').value = '100';
+        if (document.getElementById('pageSize')) {{
+            document.getElementById('pageSize').value = '100';
+        }}
         """)
 
         time.sleep(1)
@@ -216,44 +231,65 @@ def fetch_menu_top_sales(acc):
         page = 1
 
         while True:
-            rows = driver.find_elements(By.CSS_SELECTOR, "#tableList tbody tr")
+            rows = driver.find_elements(By.CSS_SELECTOR, "#tableList tbody tr, table tbody tr")
 
             for row in rows:
                 cells = row.find_elements(By.TAG_NAME, "td")
                 values = [cell.text.strip() for cell in cells]
 
-                # storeItem 컬럼 구조:
-                # 0 번호 / 1 매장명 / 2 분류명 / 3 상품코드 / 4 상품명 / 5 수량 / 6 매출금액 ...
-                if len(values) < 7:
+                if len(values) < 5:
                     continue
 
                 if not values[0].isdigit():
                     continue
 
-                try:
-                    store_name = clean_store_name(values[1])
-                    item_name = values[4]
-                    qty = to_int(values[5])
-                    sales = to_int(values[6])
+                parsed = None
 
-                    if not item_name or qty <= 0 or sales <= 0:
-                        continue
+                # 다중매장 선택 화면 컬럼 예시:
+                # 0 번호 / 1 매장명 / 2 분류명 / 3 상품코드 / 4 상품명 / 5 수량 / 6 매출금액
+                if len(values) >= 7 and "유월" in values[1]:
+                    parsed = {
+                        "store_name": clean_store_name(values[1]),
+                        "item_name": values[4],
+                        "qty": to_int(values[5]),
+                        "sales": to_int(values[6]),
+                    }
 
-                    if store_name not in result:
-                        result[store_name] = {}
+                # 단일매장 선택 화면 컬럼 예시:
+                # 0 번호 / 1 분류명 / 2 상품코드 / 3 상품명 / 4 수량 / 5 매출금액
+                elif len(values) >= 6:
+                    parsed = {
+                        "store_name": selected_store_name,
+                        "item_name": values[3],
+                        "qty": to_int(values[4]),
+                        "sales": to_int(values[5]),
+                    }
 
-                    if item_name not in result[store_name]:
-                        result[store_name][item_name] = {
-                            "item": item_name,
-                            "qty": 0,
-                            "sales": 0,
-                        }
-
-                    result[store_name][item_name]["qty"] += qty
-                    result[store_name][item_name]["sales"] += sales
-
-                except Exception:
+                if not parsed:
                     continue
+
+                store_name = parsed["store_name"]
+                item_name = parsed["item_name"]
+                qty = parsed["qty"]
+                sales = parsed["sales"]
+
+                if not store_name or "외" in store_name:
+                    continue
+                if not item_name or qty <= 0 or sales <= 0:
+                    continue
+
+                if store_name not in result:
+                    result[store_name] = {}
+
+                if item_name not in result[store_name]:
+                    result[store_name][item_name] = {
+                        "item": item_name,
+                        "qty": 0,
+                        "sales": 0,
+                    }
+
+                result[store_name][item_name]["qty"] += qty
+                result[store_name][item_name]["sales"] += sales
 
             page += 1
 
@@ -281,7 +317,6 @@ def fetch_menu_top_sales(acc):
 
     finally:
         driver.quit()
-
 
 def switch_to_frame_containing_element(driver, element_id):
     try:
@@ -432,16 +467,14 @@ def fetch_reviews():
     try:
         for store_name, url in REVIEW_URLS.items():
             driver.get(url)
-            time.sleep(5)
+            time.sleep(8)
 
             try:
                 driver.find_element(
                     By.XPATH,
                     "//a[contains(text(), '최신순')]"
                 ).click()
-
-                time.sleep(3)
-
+                time.sleep(4)
             except Exception:
                 pass
 
@@ -498,17 +531,30 @@ def fetch_reviews():
                     if not date_text.startswith(review_target_date):
                         continue
 
+                    candidates = []
+
                     review_candidates = card.find_elements(
                         By.CSS_SELECTOR,
                         "a[data-pui-click-code='rvshowless'], a[data-pui-click-code='rvshowmore']"
                     )
 
                     for review_el in review_candidates:
-                        review_text = review_el.text.strip()
+                        candidates.append(review_el.text.strip())
 
+                    if not candidates:
+                        for line in card.text.split("\n"):
+                            line = line.strip()
+                            if len(line) >= 10:
+                                candidates.append(line)
+
+                    for review_text in candidates:
                         if not review_text:
                             continue
                         if len(review_text) < 10:
+                            continue
+                        if review_text == date_text:
+                            continue
+                        if review_text.startswith(review_target_date):
                             continue
                         if "리뷰" in review_text and "사진" in review_text:
                             continue
