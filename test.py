@@ -58,6 +58,7 @@ def get_driver():
 
     return webdriver.Chrome(options=options)
 
+
    def clean_store_name(name):
     name = name.replace(" ", "")
 
