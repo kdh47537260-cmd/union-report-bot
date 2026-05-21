@@ -250,7 +250,6 @@ def fetch_menu_top_sales(acc):
     finally:
         driver.quit()
 
-
 def fetch_item2_top_sales(acc):
 
     driver = get_driver()
