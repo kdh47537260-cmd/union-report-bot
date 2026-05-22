@@ -5,8 +5,10 @@ from selenium.webdriver.chrome.service import Service
 from datetime import datetime, timedelta
 import requests
 import time
+from fastapi import FastAPI
 
 BOT_TOKEN = "8886052539:AAGrUs30DNxPsyRtL7RlDHOdeQGSDwV7cUk"
+app = FastAPI()
 
 CHAT_IDS = [
     "1490548765",   # 도현
@@ -756,16 +758,10 @@ for store_name in store_order:
 
 report = "\n".join(report_lines)
 
-print(report)
+@app.get("/")
+def home():
+    return {"status": "ok"}
 
-telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-
-for chat_id in CHAT_IDS:
-    payload = {
-        "chat_id": chat_id,
-        "text": report
-    }
-
-    requests.post(telegram_url, data=payload)
-
-print("텔레그램 전송 완료")
+@app.get("/report")
+def get_report():
+    return {"message": report}
