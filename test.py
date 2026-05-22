@@ -5,10 +5,8 @@ from selenium.webdriver.chrome.service import Service
 from datetime import datetime, timedelta
 import requests
 import time
-from fastapi import FastAPI
 
 BOT_TOKEN = "8886052539:AAGrUs30DNxPsyRtL7RlDHOdeQGSDwV7cUk"
-app = FastAPI()
 
 CHAT_IDS = [
     "1490548765",   # 도현
@@ -662,90 +660,89 @@ def fetch_reviews():
         driver.quit()
 
 
-def make_report():
-    all_store_data = {}
+all_store_data = {}
 
-    all_store_data.update(fetch_okpos())
+all_store_data.update(fetch_okpos())
 
-    for acc in union_accounts:
-        all_store_data.update(fetch_unionpos_account(acc))
+for acc in union_accounts:
+    all_store_data.update(fetch_unionpos_account(acc))
 
-    menu_top_data = {}
+menu_top_data = {}
 
-    for acc in union_accounts:
+for acc in union_accounts:
 
-        if acc["id"] == "sz77971":
-            menu_data = fetch_menu_top_sales(acc)
-        elif acc["id"] == "sz83661":
-            menu_data = fetch_item2_top_sales(acc)
-        else:
-            menu_data = {}
+    if acc["id"] == "sz77971":
+        menu_data = fetch_menu_top_sales(acc)
+    elif acc["id"] == "sz83661":
+        menu_data = fetch_item2_top_sales(acc)
+    else:
+        menu_data = {}
 
-        for store_name, items in menu_data.items():
+    for store_name, items in menu_data.items():
 
-            if store_name not in menu_top_data:
-                menu_top_data[store_name] = []
+        if store_name not in menu_top_data:
+            menu_top_data[store_name] = []
 
-            menu_top_data[store_name].extend(items)
+        menu_top_data[store_name].extend(items)
 
-    review_data = {}
+review_data = fetch_reviews()
 
-    report_lines = [
-        "[유월의보리 일매출 리포트]",
-        f"조회일자: {yesterday}",
-        ""
-    ]
+report_lines = [
+    "[유월의보리 일매출 리포트]",
+    f"조회일자: {yesterday}",
+    ""
+]
 
-    for store_name in store_order:
-        data = all_store_data.get(store_name)
+for store_name in store_order:
+    data = all_store_data.get(store_name)
 
-        if not data:
-            reviews = review_data.get(store_name, [])
-            review_text = f"전일 신규리뷰: {len(reviews)}건"
-
-            for idx, review in enumerate(reviews, start=1):
-                review_text += f"\n{idx}. {review}"
-
-            report_lines.append(f"""
-[{store_name}]
-조회 실패 또는 데이터 없음
-{review_text}
-""")
-            continue
-
-        receipt_count_int = int(data["receipt_count"].replace(",", ""))
-        table_count = TABLE_COUNTS.get(store_name, 1)
-        rotation = round(receipt_count_int / table_count, 1)
-
+    if not data:
         reviews = review_data.get(store_name, [])
         review_text = f"전일 신규리뷰: {len(reviews)}건"
 
         for idx, review in enumerate(reviews, start=1):
             review_text += f"\n{idx}. {review}"
 
-        menu_text = "판매 메뉴: 데이터 없음"
+        report_lines.append(f"""
+[{store_name}]
+조회 실패 또는 데이터 없음
+{review_text}
+""")
+        continue
 
-        if store_name in menu_top_data:
-            sorted_items = sorted(
-                menu_top_data[store_name],
-                key=lambda x: x["sales"],
-                reverse=True
+    receipt_count_int = int(data["receipt_count"].replace(",", ""))
+    table_count = TABLE_COUNTS.get(store_name, 1)
+    rotation = round(receipt_count_int / table_count, 1)
+
+    reviews = review_data.get(store_name, [])
+    review_text = f"전일 신규리뷰: {len(reviews)}건"
+
+    for idx, review in enumerate(reviews, start=1):
+        review_text += f"\n{idx}. {review}"
+
+    menu_text = "판매 메뉴: 데이터 없음"
+
+    if store_name in menu_top_data:
+        sorted_items = sorted(
+            menu_top_data[store_name],
+            key=lambda x: x["sales"],
+            reverse=True
+        )
+
+        sales_int = to_int(data["total_sales"])
+
+        menu_lines = ["판매 메뉴"]
+
+        for idx, item in enumerate(sorted_items, start=1):
+            ratio = (item["sales"] / sales_int * 100) if sales_int else 0
+
+            menu_lines.append(
+                f"{idx}. {item['item']} / {item['qty']}개 / {fmt(item['sales'])}원 / 매출비중 {ratio:.1f}%"
             )
 
-            sales_int = to_int(data["total_sales"])
+        menu_text = "\n".join(menu_lines)
 
-            menu_lines = ["판매 메뉴"]
-
-            for idx, item in enumerate(sorted_items, start=1):
-                ratio = (item["sales"] / sales_int * 100) if sales_int else 0
-
-                menu_lines.append(
-                    f"{idx}. {item['item']} / {item['qty']}개 / {fmt(item['sales'])}원 / 매출비중 {ratio:.1f}%"
-                )
-
-            menu_text = "\n".join(menu_lines)
-
-        report_lines.append(f"""
+    report_lines.append(f"""
 [{store_name}]
 총매출: {data['total_sales']}원
 영수건수(회전수): {data['receipt_count']}건 ({rotation}회전)
@@ -757,16 +754,18 @@ def make_report():
 {review_text}
 """)
 
-    report = "\n".join(report_lines)
+report = "\n".join(report_lines)
 
-    return report
+print(report)
 
-@app.get("/")
-def home():
-    return {"status": "ok"}
+telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
+for chat_id in CHAT_IDS:
+    payload = {
+        "chat_id": chat_id,
+        "text": report
+    }
 
-@app.get("/report")
-def get_report():
-    report = make_report()
-    return {"message": report}
+    requests.post(telegram_url, data=payload)
+
+print("텔레그램 전송 완료")
