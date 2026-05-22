@@ -687,7 +687,7 @@ for acc in union_accounts:
 
         menu_top_data[store_name].extend(items)
 
-review_data = fetch_reviews()
+review_data = {}
 
 report_lines = [
     "[유월의보리 일매출 리포트]",
