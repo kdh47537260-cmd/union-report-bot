@@ -293,7 +293,7 @@ def fetch_item2_top_sales(acc):
             values = [cell.text.strip() for cell in cells]
             print("ITEM2_ROW:", values)
             
-            if len(values) < 5:
+            if len(values) < 4:
                 continue
 
             try:
@@ -326,74 +326,6 @@ def fetch_item2_top_sales(acc):
     finally:
         driver.quit()
         
-    driver = get_driver()
-    result = {}
-
-    try:
-        driver.get("https://asp2.unionpos.co.kr")
-        time.sleep(2)
-
-        driver.find_element(By.ID, "userId").send_keys(acc["id"])
-        driver.find_element(By.ID, "password").send_keys(acc["pw"])
-        driver.find_element(By.ID, "btnLogin").click()
-
-        time.sleep(3)
-
-        url = (
-            "https://asp2.unionpos.co.kr/v2/sales/product/storeItem"
-            f"?pageNo=1"
-            f"&rangeDate={yesterday}+~+{yesterday}"
-            f"&startDate={yesterday}"
-            f"&endDate={yesterday}"
-            f"&searchType=ItemName"
-            f"&searchKeyword="
-            f"&pageSize=100"
-        )
-
-        driver.get(url)
-
-        time.sleep(5)
-
-        rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
-
-        for row in rows:
-
-            cells = row.find_elements(By.TAG_NAME, "td")
-            values = [cell.text.strip() for cell in cells]
-
-            if len(values) < 5:
-                continue
-
-            try:
-                store_name = clean_store_name(values[0])
-                item_name = values[1]
-
-                qty = to_int(values[2])
-                sales = to_int(values[3])
-
-                if sales <= 0:
-                    continue
-
-                if store_name not in result:
-                    result[store_name] = []
-
-                result[store_name].append({
-                    "item": item_name,
-                    "qty": qty,
-                    "sales": sales,
-                })
-
-            except Exception:
-                continue
-
-        return result
-
-    except Exception as e:
-        print("메뉴 TOP 조회 실패:", e)
-        return {}
-
-    finally:
-        driver.quit()
         
 def switch_to_frame_containing_element(driver, element_id):
     try:
