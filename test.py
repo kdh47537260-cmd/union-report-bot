@@ -195,6 +195,7 @@ def union_login_session(acc):
     return session
 
 def fetch_menu_top_sales(acc):
+
     session = union_login_session(acc)
     result = {}
 
@@ -217,7 +218,7 @@ def fetch_menu_top_sales(acc):
     }
 
     res = session.get(url, params=payload, headers=headers)
-    
+
     print("유니온 메뉴 HTML:", res.status_code, res.text[:300])
     print("유니온 메뉴 URL:", res.url)
     print("tableList 있음:", "tableList" in res.text)
@@ -227,42 +228,44 @@ def fetch_menu_top_sales(acc):
     soup = BeautifulSoup(res.text, "html.parser")
     rows = soup.select("table#tableList tbody tr")
 
-for row in rows:
-    cells = [td.get_text(strip=True) for td in row.select("td")]
+    for row in rows:
 
-    if len(cells) < 7:
-        continue
+        cells = [td.get_text(strip=True) for td in row.select("td")]
 
-    if not cells[0].strip().isdigit():
-        continue
-
-    if "합계" in cells[0]:
-        continue
-
-    try:
-        store_name = clean_store_name(cells[1])
-        item_name = cells[4]
-        qty = to_int(cells[5])
-        sales = to_int(cells[6])
-
-        if sales <= 0:
+        if len(cells) < 7:
             continue
 
-        if store_name not in result:
-            result[store_name] = []
+        if not cells[0].strip().isdigit():
+            continue
 
-        result[store_name].append({
-            "item": item_name,
-            "qty": qty,
-            "sales": sales,
-        })
+        if "합계" in cells[0]:
+            continue
 
-        print("메뉴 저장:", store_name, item_name, qty, sales)
+        try:
+            store_name = clean_store_name(cells[1])
+            item_name = cells[4]
 
-    except Exception:
-        continue
+            qty = to_int(cells[5])
+            sales = to_int(cells[6])
 
-return result
+            if sales <= 0:
+                continue
+
+            if store_name not in result:
+                result[store_name] = []
+
+            result[store_name].append({
+                "item": item_name,
+                "qty": qty,
+                "sales": sales,
+            })
+
+            print("메뉴 저장:", store_name, item_name, qty, sales)
+
+        except Exception:
+            continue
+
+    return result
 
 def fetch_item2_top_sales(acc):
 
