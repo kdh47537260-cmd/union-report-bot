@@ -216,9 +216,13 @@ def fetch_menu_top_sales(acc):
         "pageSize": "300",
     }
 
-    res = session.post(url, data=payload, headers=headers)
-
+    res = session.get(url, params=payload, headers=headers)
+    
     print("유니온 메뉴 HTML:", res.status_code, res.text[:300])
+    print("유니온 메뉴 URL:", res.url)
+    print("tableList 있음:", "tableList" in res.text)
+    print("솥밥 있음:", "솥밥" in res.text)
+    print("로그인페이지 있음:", "login" in res.text.lower())
 
     soup = BeautifulSoup(res.text, "html.parser")
     rows = soup.select("table#tableList tbody tr")
