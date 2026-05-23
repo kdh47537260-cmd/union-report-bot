@@ -473,7 +473,6 @@ def fetch_okpos_menu_top_sales():
         time.sleep(5)
 
         cookies = driver.get_cookies()
-
         session = requests.Session()
 
         for cookie in cookies:
@@ -523,7 +522,6 @@ def fetch_okpos_menu_top_sales():
         result[store_name] = []
 
         rows = data.get("Data", [])
-
         print("OKPOS_MENU_ROW_COUNT:", len(rows))
 
         for row in rows:
@@ -543,7 +541,6 @@ def fetch_okpos_menu_top_sales():
             })
 
         print("OKPOS_MENU_RESULT_COUNT:", len(result[store_name]))
-
         return result
 
     except Exception as e:
@@ -552,7 +549,6 @@ def fetch_okpos_menu_top_sales():
 
     finally:
         driver.quit()
-
 
 PLACE_IDS = {
     "유월의보리 본점": "1265080366",
