@@ -3,6 +3,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from datetime import datetime, timedelta
 import time
+import random
 
 today = datetime.now() + timedelta(hours=9)
 review_target_date = f"{(today - timedelta(days=1)).month}.{(today - timedelta(days=1)).day}"
@@ -76,37 +77,22 @@ def fetch_reviews():
             print("페이지 제목:", driver.title)
             print("BODY 일부:", driver.find_element(By.TAG_NAME, "body").text[:500])
 
-            try:
-                driver.find_element(
-                    By.XPATH,
-                    "//a[contains(text(), '최신순')]"
-                ).click()
+            scroll_waits = [15, 19, 24]
 
-                print("최신순 클릭 완료")
-                time.sleep(5.5)
+            for i in range(3):
+                driver.execute_script(
+                    "window.scrollTo(0, document.body.scrollHeight);"
+                )
 
-            except Exception as e:
-                print("최신순 클릭 실패:", e)
+                print(f"스크롤 {i + 1}회")
 
-                scroll_waits = [3, 2.1, 6]
+                wait_time = scroll_waits[i]
+                print(f"{wait_time}초 대기")
 
-                for i in range(3):
+                time.sleep(wait_time)
 
-                    driver.execute_script(
-                        "window.scrollTo(0, document.body.scrollHeight);"
-    )
-
-                    print(f"스크롤 {i + 1}회")
-
-                    wait_time = scroll_waits[i]
-
-                    print(f"{wait_time}초 대기")
-
-                    time.sleep(wait_time)
-
-                    cards = driver.find_elements(By.XPATH, "//li[.//time]")
-
-                    print("현재 카드 수:", len(cards))
+                cards = driver.find_elements(By.XPATH, "//li[.//time]")
+                print("현재 카드 수:", len(cards))
 
             cards = driver.find_elements(By.XPATH, "//li[.//time]")
             review_texts = []
@@ -168,6 +154,10 @@ def fetch_reviews():
 
             review_data[store_name] = list(dict.fromkeys(review_texts))
             print("수집 완료:", store_name, len(review_data[store_name]), "건")
+
+            wait_time = random.uniform(15, 28)
+            print(f"다음 지점 이동 전 {wait_time:.1f}초 대기")
+            time.sleep(wait_time)
 
         return review_data
 
