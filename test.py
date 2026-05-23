@@ -16,15 +16,49 @@ REVIEW_URLS = {
 
 def get_driver():
     options = Options()
+
     options.add_argument("--headless=new")
-    options.add_argument("--window-size=1280,1000")
+    options.add_argument("--window-size=1366,768")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
 
-    return webdriver.Chrome(options=options)
+    options.add_argument("--lang=ko-KR")
+    options.add_argument("--disable-blink-features=AutomationControlled")
 
+    options.add_argument(
+        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/136.0.0.0 Safari/537.36"
+    )
 
+    driver = webdriver.Chrome(options=options)
+
+    driver.execute_cdp_cmd(
+        "Page.addScriptToEvaluateOnNewDocument",
+        {
+            "source": """
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+
+                Object.defineProperty(navigator, 'language', {
+                    get: () => 'ko-KR'
+                });
+
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['ko-KR', 'ko']
+                });
+
+                Object.defineProperty(navigator, 'platform', {
+                    get: () => 'Win32'
+                });
+            """
+        }
+    )
+
+    return driver
+    
 def fetch_reviews():
     driver = get_driver()
     review_data = {}
@@ -36,7 +70,7 @@ def fetch_reviews():
             print("리뷰 대상 날짜:", review_target_date)
 
             driver.get(url)
-            time.sleep(8)
+            time.sleep(12)
 
             print("현재 URL:", driver.current_url)
             print("페이지 제목:", driver.title)
