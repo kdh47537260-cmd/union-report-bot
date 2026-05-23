@@ -518,71 +518,50 @@ for card in cards:
         if not date_text.startswith(review_target_date):
             continue
 
-                    except Exception:
-                        pass
+        review_candidates = card.find_elements(
+            By.CSS_SELECTOR,
+            "a[data-pui-click-code='rvshowless'], a[data-pui-click-code='rvshowmore']"
+        )
 
-                if current_count == last_count:
-                    same_count += 1
-                else:
-                    same_count = 0
-                    last_count = current_count
+        for review_el in review_candidates:
+            review_text = review_el.get_attribute("innerText").strip()
+            review_text = review_text.replace("\n", " ").strip()
 
-                if same_count >= 3:
-                    break
+            if not review_text:
+                continue
+            if len(review_text) < 10:
+                continue
+            if "리뷰" in review_text and "사진" in review_text:
+                continue
+            if "팔로우" in review_text:
+                continue
+            if "개의 리뷰가 더 있습니다" in review_text:
+                continue
+            if "반응 남기기" in review_text:
+                continue
+            if "방문예약" in review_text:
+                continue
+            if "대기 시간" in review_text:
+                continue
+            if "친목" in review_text:
+                continue
+            if "데이트" in review_text:
+                continue
+            if "연인・배우자" in review_text:
+                continue
+            if "지인・동료" in review_text:
+                continue
+            if review_text.startswith("+"):
+                continue
 
-                if len(cards) > 250:
-                    break
+            print("REVIEW:", review_text)
 
-            cards = driver.find_elements(By.XPATH, "//li[.//time]")
-            review_texts = []
+            review_texts.append(review_text)
+            break
 
-            for card in cards:
-                try:
-                    date_text = card.find_element(By.TAG_NAME, "time").text.strip()
+    except Exception:
+        pass
 
-                    if not date_text.startswith(review_target_date):
-                        continue
-
-                    review_candidates = card.find_elements(
-                        By.CSS_SELECTOR,
-                        "a[data-pui-click-code='rvshowless'], a[data-pui-click-code='rvshowmore']"
-                    )
-
-                    for review_el in review_candidates:
-                        review_text = review_el.get_attribute("innerText").strip()
-                        review_text = review_text.replace("\n", " ").strip()
-
-                        if not review_text:
-                            continue
-                        if len(review_text) < 10:
-                            continue
-                        if "리뷰" in review_text and "사진" in review_text:
-                            continue
-                        if "팔로우" in review_text:
-                            continue
-                        if "개의 리뷰가 더 있습니다" in review_text:
-                            continue
-                        if "반응 남기기" in review_text:
-                            continue
-                        if "방문예약" in review_text:
-                            continue
-                        if "대기 시간" in review_text:
-                            continue
-                        if "친목" in review_text:
-                            continue
-                        if "데이트" in review_text:
-                            continue
-                        if "연인・배우자" in review_text:
-                            continue
-                        if "지인・동료" in review_text:
-                            continue
-                        if review_text.startswith("+"):
-                            continue
-                        
-                        print("REVIEW:", review_text)
-
-                        review_texts.append(review_text)
-                        break
 
                 except Exception:
                     pass
