@@ -474,52 +474,70 @@ def fetch_okpos_menu_top_sales():
         driver.execute_script("doSubmit();")
         time.sleep(5)
 
-        driver.get("https://nicepay.okpos.co.kr/sale/sale/prod015.jsp?PAGE_OPTION=DAY")
+        driver.get(
+            "https://nicepay.okpos.co.kr/sale/sale/prod015.jsp?PAGE_OPTION=DAY"
+        )
+
         time.sleep(5)
 
-        driver.switch_to.default_content()
-        switch_to_frame_containing_element(driver, "date1_1")
+        cookies = driver.get_cookies()
 
-        driver.execute_script(f"""
-        document.getElementById('date1_1').removeAttribute('readonly');
-        document.getElementById('date1_1').value = '{yesterday}';
+        session = requests.Session()
 
-        document.getElementById('date1_2').removeAttribute('readonly');
-        document.getElementById('date1_2').value = '{yesterday}';
-        """)
+        for cookie in cookies:
+            session.cookies.set(cookie["name"], cookie["value"])
 
-        time.sleep(1)
-        driver.execute_script("fnSearch();")
-        time.sleep(8)
+        url = "https://nicepay.okpos.co.kr/sale/sale/ddd.htmlSheetAction"
 
-        rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+        headers = {
+            "accept": "*/*",
+            "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "ibuseragent": "IBSheet7",
+            "origin": "https://nicepay.okpos.co.kr",
+            "referer": "https://nicepay.okpos.co.kr/sale/sale/prod015.jsp?PAGE_OPTION=DAY",
+            "x-requested-with": "XMLHttpRequest",
+        }
+
+        payload = {
+            "S_CONTROLLER": "sale.sale.prod015",
+            "S_METHOD": "search",
+            "SHEETSEQ": "1",
+            "S_SAVENAME": "SALE_DATE|LCLS_NM|MCLS_NM|SCLS_NM|PROD_CD|PROD_NM|SALE_QTY|TOT_SALE_AMT|TOT_DC_AMT|DCM_SALE_AMT",
+            "ss_PAGE_OPTION": "DAY",
+            "date1_1": yesterday,
+            "date1_2": yesterday,
+            "date_period1": "366",
+            "ss_PAGE_SIZE": "100",
+            "ss_PAGE_NO1": "1",
+        }
+
+        res = session.post(url, headers=headers, data=payload)
+
+        print("OKPOS_MENU_STATUS:", res.status_code)
+        print("OKPOS_MENU_TEXT:", res.text[:1000])
+
+        data = res.json()
+
+        rows = data.get("Data", [])
+
         print("OKPOS_MENU_ROW_COUNT:", len(rows))
 
         for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            values = [cell.text.strip() for cell in cells if cell.text.strip()]
-            print("OKPOS_MENU_ROW:", values)
 
-            if len(values) < 8:
+            print("OKPOS_MENU_ROW:", row)
+
+            item_name = row.get("PROD_NM", "")
+            qty = to_int(str(row.get("SALE_QTY", "0")))
+            sales = to_int(str(row.get("DCM_SALE_AMT", "0")))
+
+            if not item_name or sales <= 0:
                 continue
 
-            try:
-                item_name = values[5]
-                qty = to_int(values[6])
-                sales = to_int(values[9]) if len(values) > 9 else to_int(values[7])
-
-                if not item_name or sales <= 0:
-                    continue
-
-                result["유월의보리 본점"].append({
-                    "item": item_name,
-                    "qty": qty,
-                    "sales": sales,
-                })
-
-            except Exception as e:
-                print("OKPOS_MENU_PARSE_ERROR:", values, e)
-                continue
+            result["유월의보리 본점"].append({
+                "item": item_name,
+                "qty": qty,
+                "sales": sales,
+            })
 
         print("OKPOS_MENU_RESULT_COUNT:", len(result["유월의보리 본점"]))
         return result
@@ -678,7 +696,7 @@ for store_name in store_order:
             review_text += f"\n{idx}. {review}"
 
         report_lines.append(f"""
-[{store_name}]
+    [{store_name}]
 조회 실패 또는 데이터 없음
 {review_text}
 """)
@@ -707,38 +725,14 @@ for store_name in store_order:
         target_qty = sum(item["qty"] for item in target_items)
         target_sales = sum(item["sales"] for item in target_items)
         target_menu_text = f"한상보쌈&칼국수: {target_qty}개 / {fmt(target_sales)}원"
-    
-    menu_text = "판매 메뉴: 데이터 없음"
 
-    if store_name in menu_top_data:
-        sorted_items = sorted(
-            menu_top_data[store_name],
-            key=lambda x: x["sales"],
-            reverse=True
-        )
-
-        sales_int = to_int(data["total_sales"])
-
-        menu_lines = ["판매 메뉴"]
-
-        for idx, item in enumerate(sorted_items, start=1):
-            ratio = (item["sales"] / sales_int * 100) if sales_int else 0
-
-            menu_lines.append(
-                f"{idx}. {item['item']} / {item['qty']}개 / {fmt(item['sales'])}원 / {ratio:.1f}%"
-            )
-
-        menu_text = "\n".join(menu_lines)
-
-    report_lines.append(f"""
+report_lines.append(f"""
 [{store_name}]
 총매출: {data['total_sales']}원
 영수건수(회전수): {data['receipt_count']}건 ({rotation}회전)
 테이블단가: {data['table_price']}원
 월누적매출: {data['month_sales']}원
 {target_menu_text}
-
-{menu_text}
 
 {review_text}
 """)
