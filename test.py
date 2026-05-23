@@ -1,6 +1,7 @@
 import requests
 from datetime import datetime, timedelta
 
+
 today = datetime.now() + timedelta(hours=9)
 yesterday = (today - timedelta(days=1)).strftime("%Y-%m-%d")
 
@@ -8,6 +9,7 @@ TARGET_ITEMS = [
     "한상보쌈+바지락칼국수",
     "접시보쌈&보쌈무김치",
 ]
+
 
 def fetch_okpos_menu_sales_api():
     url = "https://nicepay.okpos.co.kr/sale/sale/ddd.htmlSheetAction"
@@ -24,6 +26,8 @@ def fetch_okpos_menu_sales_api():
     }
 
     payload = {
+        "15f06991-5680-45c5-b9d4-1ebbec24b5e1": "4034cfc9-16fc-4a56-a141-5aa277e96c41",
+
         "S_CONTROLLER": "sale.sale.prod011",
         "S_METHOD": "search",
         "SHEETSEQ": "1",
@@ -52,18 +56,17 @@ def fetch_okpos_menu_sales_api():
 
     print("STATUS:", res.status_code)
     print("TEXT_LEN:", len(res.text))
-    print("TEXT_HEAD:", repr(res.text[:1000]))
+    print("TEXT_HEAD:", repr(res.text[:500]))
 
     data = res.json()
 
-    print("DATA_KEYS:", data.keys())
+    print("RESULT_CODE:", data.get("Result", {}).get("Code"))
+    print("RESULT_MESSAGE:", data.get("Result", {}).get("Message"))
     print("DATA_COUNT:", len(data.get("Data", [])))
 
     result = {}
 
     for row in data.get("Data", []):
-        print(row.get("PROD_NM"), row.get("SALE_QTY"), row.get("TOT_SALE_AMT"))
-
         name = row.get("PROD_NM")
 
         if name in TARGET_ITEMS:
@@ -75,4 +78,4 @@ def fetch_okpos_menu_sales_api():
     return result
 
 
-print(fetch_okpos_menu_sales_api())
+print("FINAL_RESULT:", fetch_okpos_menu_sales_api())
