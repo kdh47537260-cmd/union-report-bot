@@ -474,32 +474,56 @@ def fetch_okpos_menu_top_sales():
         driver.execute_script("doSubmit();")
         time.sleep(5)
 
-        driver.get("https://nicepay.okpos.co.kr/sale/sale/prod015.jsp?PAGE_OPTION=DAY")
+        driver.get("https://nicepay.okpos.co.kr/sale/sale/prod011.jsp")
         time.sleep(8)
 
-        driver.switch_to.default_content()
-        found = switch_to_frame_containing_element(driver, "date1_1")
+        cookies = driver.get_cookies()
 
-        if not found:
-            print("OKPOS_MENU_FRAME_NOT_FOUND")
-            return result
+        session = requests.Session()
 
-        driver.execute_script(f"""
-        document.getElementById('date1_1').removeAttribute('readonly');
-        document.getElementById('date1_1').value = '{yesterday}';
+        for cookie in cookies:
+            session.cookies.set(cookie["name"], cookie["value"])
 
-        document.getElementById('date1_2').removeAttribute('readonly');
-        document.getElementById('date1_2').value = '{yesterday}';
-        """)
+        url = "https://nicepay.okpos.co.kr/sale/sale/ddd.htmlSheetAction"
 
-        time.sleep(1)
-        driver.execute_script("fnSearch();")
-        time.sleep(8)
+        headers = {
+            "accept": "*/*",
+            "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "ibuseragent": "IBSheet7",
+            "origin": "https://nicepay.okpos.co.kr",
+            "referer": "https://nicepay.okpos.co.kr/sale/sale/prod011.jsp",
+            "x-requested-with": "XMLHttpRequest",
+            "user-agent": "Mozilla/5.0",
+        }
+
+        payload = {
+            "b86a5de7-e89f-4fef-aa28-1d5adae7272b": "dbeacef7-e073-4ca7-932f-62f247ecb476",
+            "S_SAVENAME": "sSeq|LCLS_NM|MCLS_NM|SCLS_NM|SALE_DATE|PROD_CD|BAR_CD|MAP_PROD_CD|PROD_NM|VENDORS_NM|COLOR_CD|SIZE_STR_CD|SALE_QTY|PROD_WEIGHT|TOT_SALE_AMT|TOT_DC_AMT|DCM_SALE_AMT|DC_AMT_GEN|DC_AMT_SVC|DC_AMT_JCD|DC_AMT_CPN|DC_AMT_CST|DC_AMT_FOD|DC_AMT_PACK|DC_AMT_YAP|SHOP_CD",
+            "ss_CLS_TEXT": "전체",
+            "date_period1": "366",
+            "S_CONTROLLER": "sale.sale.prod011",
+            "S_METHOD": "search",
+            "SHEETSEQ": "1",
+            "ss_PROD_FG": "N",
+            "date1_1": yesterday,
+            "date1_2": yesterday,
+            "ss_PAGE_SIZE": "100",
+            "ss_PAGE_NO1": "1",
+        }
+        
         res = session.post(url, headers=headers, data=payload)
         data = res.json()
+        print("OKPOS_MENU_STATUS:", res.status_code)
+        print("OKPOS_MENU_TEXT:", res.text[:1000])
+        
+        rows = (
+            data.get("Data")
+            or data.get("data")
+            or data.get("SearchData")
+            or []
+        )
 
-        rows = data.get("Data", [])
-
+        print("OKPOS_MENU_JSON_KEYS:", data.keys())
         print("OKPOS_MENU_ROW_COUNT:", len(rows))
 
         for row in rows:
