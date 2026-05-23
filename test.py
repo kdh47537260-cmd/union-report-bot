@@ -481,13 +481,13 @@ def fetch_reviews():
           print("STORE:", store_name)
           print(driver.page_source[:5000])
     
-          try:
+            try:
                 driver.find_element(
                     By.XPATH,
                     "//a[contains(text(), '최신순')]"
                 ).click()
                 time.sleep(3)
-          except Exception:
+            except Exception:
                 pass
 
             last_count = 0
