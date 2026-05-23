@@ -77,67 +77,33 @@ try:
 
     print("상품별매출 페이지 진입 완료")
 
-    cookies = driver.get_cookies()
-
-    session = requests.Session()
-
-    for cookie in cookies:
-        session.cookies.set(cookie["name"], cookie["value"])
-
-    url = "https://nicepay.okpos.co.kr/sale/sale/ddd.htmlSheetAction"
-
-    headers = {
-        "accept": "*/*",
-        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "ibuseragent": "IBSheet7",
-        "origin": "https://nicepay.okpos.co.kr",
-        "referer": "https://nicepay.okpos.co.kr/sale/sale/prod011.jsp",
-        "x-requested-with": "XMLHttpRequest",
-        "user-agent": "Mozilla/5.0",
-    }
-
-    payload = {
-        "b86a5de7-e89f-4fef-aa28-1d5adae7272b": "dbeacef7-e073-4ca7-932f-62f247ecb476",
-        "S_SAVENAME": "sSeq|LCLS_NM|MCLS_NM|SCLS_NM|SALE_DATE|PROD_CD|BAR_CD|MAP_PROD_CD|PROD_NM|VENDORS_NM|COLOR_CD|SIZE_STR_CD|SALE_QTY|PROD_WEIGHT|TOT_SALE_AMT|TOT_DC_AMT|DCM_SALE_AMT|DC_AMT_GEN|DC_AMT_SVC|DC_AMT_JCD|DC_AMT_CPN|DC_AMT_CST|DC_AMT_FOD|DC_AMT_PACK|DC_AMT_YAP|SHOP_CD",
-        "ss_CLS_TEXT": "전체",
-        "date_period1": "366",
-        "S_CONTROLLER": "sale.sale.prod011",
-        "S_METHOD": "search",
-        "SHEETSEQ": "1",
-        "ss_PROD_FG": "N",
-        "date1_1": yesterday,
-        "date1_2": yesterday,
-        "ss_PAGE_SIZE": "100",
-        "ss_PAGE_NO1": "1",
-    }
-
-    res = session.post(url, headers=headers, data=payload)
-
-    print("STATUS:", res.status_code)
-    print("TEXT:", res.text[:1000])
-
-    data = res.json()
-
-    rows = (
-        data.get("Data")
-        or data.get("data")
-        or data.get("SearchData")
-        or []
-    )
+    rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
 
     print("ROW_COUNT:", len(rows))
 
     for row in rows:
 
-        item_name = row.get("PROD_NM", "")
-        qty = to_int(row.get("SALE_QTY", "0"))
-        sales = to_int(row.get("DCM_SALE_AMT", "0"))
+        cells = row.find_elements(By.TAG_NAME, "td")
+        values = [cell.text.strip() for cell in cells]
 
-        if "한상보쌈" in item_name:
-            print("한상보쌈:", qty, sales)
+        print("ROW:", values)
 
-        if "접시보쌈" in item_name:
-            print("접시보쌈:", qty, sales)
+        if len(values) < 10:
+            continue
+
+        try:
+            item_name = values[8]
+            qty = to_int(values[12])
+            sales = to_int(values[16])
+
+            if "한상보쌈" in item_name:
+                print("한상보쌈:", qty, sales)
+
+            if "접시보쌈" in item_name:
+                print("접시보쌈:", qty, sales)
+
+        except Exception as e:
+            print("PARSE_ERROR:", e)
 
 except Exception as e:
     print("에러:", e)
