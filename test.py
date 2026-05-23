@@ -487,7 +487,7 @@ def fetch_reviews():
                     "//a[contains(text(), '최신순')]"
                 ).click()
                 time.sleep(3)
-            except Exception:
+          except Exception:
                 pass
 
             last_count = 0
