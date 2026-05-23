@@ -219,38 +219,25 @@ def fetch_menu_top_sales(acc):
 
     res = session.get(url, params=payload, headers=headers)
 
-    print("유니온 메뉴 HTML:", res.status_code, res.text[:300])
-    print("유니온 메뉴 URL:", res.url)
-    print("tableList 있음:", "tableList" in res.text)
-    print("솥밥 있음:", "솥밥" in res.text)
-    print("로그인페이지 있음:", "login" in res.text.lower())
-
     soup = BeautifulSoup(res.text, "html.parser")
     rows = soup.select("table#tableList tbody tr")
 
     for row in rows:
-
         cells = [td.get_text(strip=True) for td in row.select("td")]
-        print("CELLS:", cells)
-        
+
         if len(cells) < 7:
             continue
 
         if not cells[0].strip().isdigit():
             continue
 
-        if "합계" in cells[0]:
-            continue
-
         try:
-            store_name = "유월의보리 양재점" if acc["id"] == "sz77971" else "유월의보리 신내점"
-            
+            store_name = clean_store_name(cells[1])
             item_name = cells[4]
-
             qty = to_int(cells[5])
             sales = to_int(cells[6])
 
-            if sales <= 0:
+            if not store_name or not item_name or sales <= 0:
                 continue
 
             if store_name not in result:
@@ -262,19 +249,17 @@ def fetch_menu_top_sales(acc):
                 "sales": sales,
             })
 
-            print("메뉴 저장:", store_name, item_name, qty, sales)
-
         except Exception:
             continue
 
-        for store_name in result:
-            result[store_name] = sorted(
-                result[store_name],
-                key=lambda x: x["qty"],
-                reverse=True
-            )
-            
-        return result
+    for store_name in result:
+        result[store_name] = sorted(
+            result[store_name],
+            key=lambda x: x["qty"],
+            reverse=True
+        )
+
+    return result
 
 def fetch_item2_top_sales(acc):
 
@@ -641,7 +626,7 @@ for store_name in store_order:
     if store_name in menu_top_data:
         sorted_items = sorted(
             menu_top_data[store_name],
-            key=lambda x: x["sales"],
+            key=lambda x: x["qty"],
             reverse=True
         )
 
