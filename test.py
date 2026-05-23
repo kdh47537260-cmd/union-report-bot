@@ -1,3 +1,4 @@
+from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from datetime import datetime, timedelta
@@ -169,80 +170,90 @@ def fetch_unionpos_account(acc):
         driver.quit()
 
 
-def fetch_menu_top_sales(acc):
+def union_login_session(acc):
+    session = requests.Session()
 
-    driver = get_driver()
+    login_url = "https://asp2.unionpos.co.kr/v2/loginCheck"
+
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": "https://asp2.unionpos.co.kr/",
+        "Origin": "https://asp2.unionpos.co.kr",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    }
+
+    payload = {
+        "userId": acc["id"],
+        "password": acc["pw"],
+    }
+
+    res = session.post(login_url, data=payload, headers=headers)
+
+    print("유니온 로그인:", acc["id"], res.status_code, res.text[:200])
+
+    return session
+
+def fetch_menu_top_sales(acc):
+    session = union_login_session(acc)
     result = {}
 
-    try:
-        driver.get("https://asp2.unionpos.co.kr")
-        time.sleep(2)
+    url = "https://asp2.unionpos.co.kr/v2/sales/product/storeItem"
 
-        driver.find_element(By.ID, "userId").send_keys(acc["id"])
-        driver.find_element(By.ID, "password").send_keys(acc["pw"])
-        driver.find_element(By.ID, "btnLogin").click()
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://asp2.unionpos.co.kr/v2/sales/product/storeItem",
+        "Origin": "https://asp2.unionpos.co.kr",
+    }
 
-        time.sleep(3)
+    payload = {
+        "pageNo": "1",
+        "rangeDate": f"{yesterday} ~ {yesterday}",
+        "startDate": yesterday,
+        "endDate": yesterday,
+        "searchType": "ItemName",
+        "searchKeyword": "",
+        "pageSize": "300",
+    }
 
-        url = (
-            "https://asp2.unionpos.co.kr/v2/sales/product/storeItem"
-            f"?pageNo=1"
-            f"&rangeDate={yesterday}+~+{yesterday}"
-            f"&startDate={yesterday}"
-            f"&endDate={yesterday}"
-            f"&searchType=ItemName"
-            f"&searchKeyword="
-            f"&pageSize=100"
-        )
+    res = session.post(url, data=payload, headers=headers)
 
-        driver.get(url)
+    print("유니온 메뉴 HTML:", res.status_code, res.text[:300])
 
-        time.sleep(5)
+    soup = BeautifulSoup(res.text, "html.parser")
+    rows = soup.select("table#tableList tbody tr")
 
-        rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+    for row in rows:
+        cells = [td.get_text(strip=True) for td in row.select("td")]
 
-        for row in rows:
+        if len(cells) < 7:
+            continue
 
-            cells = row.find_elements(By.TAG_NAME, "td")
-            values = [cell.text.strip() for cell in cells]
-            print("MENU_ROW:", values)
-            
-            if len(values) < 4:
+        if not cells[0].isdigit():
+            continue
+
+        try:
+            store_name = clean_store_name(cells[1])
+            item_name = cells[4]
+            qty = to_int(cells[5])
+            sales = to_int(cells[6])
+
+            if sales <= 0:
                 continue
 
-            try:
+            if store_name not in result:
+                result[store_name] = []
 
-                if not values[0].isdigit():
-                    continue
-                store_name = clean_store_name(values[1])
-                item_name = values[4]
+            result[store_name].append({
+                "item": item_name,
+                "qty": qty,
+                "sales": sales,
+            })
 
-                qty = to_int(values[5])
-                sales = to_int(values[6])
+        except Exception:
+            continue
 
-                if sales <= 0:
-                    continue
-
-                if store_name not in result:
-                    result[store_name] = []
-
-                result[store_name].append({
-                    "item": item_name,
-                    "qty": qty,
-                    "sales": sales,
-                })
-
-            except Exception:
-                continue
-
-        return result
-
-    except Exception as e:
-        print("메뉴 TOP 조회 실패:", e)
-        return {}
-
-    finally:
-        driver.quit()
+    return result
 
 def fetch_item2_top_sales(acc):
 
