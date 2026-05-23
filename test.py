@@ -509,14 +509,14 @@ def fetch_reviews():
 
                 current_count = 0
 
-                for card in cards:
-                    try:
-                        date_text = card.find_element(By.TAG_NAME, "time").text.strip()
-                        
-                      print("DATE:", date_text)
-                    
-                        if date_text.startswith(review_target_date):
-                            current_count += 1
+for card in cards:
+    try:
+        date_text = card.find_element(By.TAG_NAME, "time").text.strip()
+
+        print("DATE:", date_text)
+
+        if not date_text.startswith(review_target_date):
+            continue
 
                     except Exception:
                         pass
