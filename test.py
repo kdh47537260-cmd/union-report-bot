@@ -230,12 +230,15 @@ def fetch_menu_top_sales(acc):
     for row in rows:
         cells = [td.get_text(strip=True) for td in row.select("td")]
 
-        if len(cells) < 7:
-            continue
+    if len(cells) < 7:
+        continue
 
-        if not cells[0].isdigit():
-            continue
+    if not cells[0].strip().isdigit():
+        continue
 
+    if "합계" in cells[0]:
+        continue
+        
         try:
             store_name = clean_store_name(cells[1])
             item_name = cells[4]
@@ -254,6 +257,8 @@ def fetch_menu_top_sales(acc):
                 "sales": sales,
             })
 
+            print("메뉴 저장:", store_name, item_name, qty, sales)
+        
         except Exception:
             continue
 
