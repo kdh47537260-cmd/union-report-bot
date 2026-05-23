@@ -558,7 +558,7 @@ for acc in union_accounts:
     if acc["id"] == "sz77971":
         menu_data = fetch_menu_top_sales(acc)
     elif acc["id"] == "sz83661":
-        menu_data = fetch_item2_top_sales(acc)
+        menu_data = fetch_menu_top_sales(acc)
     else:
         menu_data = {}
 
