@@ -635,7 +635,7 @@ for store_name in store_order:
     review_text = f"전일 신규리뷰: {len(reviews)}건"
 
     for idx, review in enumerate(reviews, start=1):
-        review_text += f"\n\n{idx}. {review}""
+        review_text += f"\n\n{idx}. {review}"
 
     hansang_text = "한상보쌈&칼국수: 데이터 없음"
     plate_text = "접시보쌈&무김치: 데이터 없음"
