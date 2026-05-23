@@ -474,78 +474,68 @@ def fetch_okpos_menu_top_sales():
         driver.execute_script("doSubmit();")
         time.sleep(5)
 
-        driver.get(
-            "https://nicepay.okpos.co.kr/sale/sale/prod015.jsp?PAGE_OPTION=DAY"
-        )
+        driver.get("https://nicepay.okpos.co.kr/sale/sale/prod015.jsp?PAGE_OPTION=DAY")
+        time.sleep(8)
 
-        time.sleep(5)
+        driver.switch_to.default_content()
+        found = switch_to_frame_containing_element(driver, "date1_1")
 
-        cookies = driver.get_cookies()
+        if not found:
+            print("OKPOS_MENU_FRAME_NOT_FOUND")
+            return result
 
-        session = requests.Session()
+        driver.execute_script(f"""
+        document.getElementById('date1_1').removeAttribute('readonly');
+        document.getElementById('date1_1').value = '{yesterday}';
 
-        for cookie in cookies:
-            session.cookies.set(cookie["name"], cookie["value"])
+        document.getElementById('date1_2').removeAttribute('readonly');
+        document.getElementById('date1_2').value = '{yesterday}';
+        """)
 
-        url = "https://nicepay.okpos.co.kr/sale/sale/ddd.htmlSheetAction"
+        time.sleep(1)
+        driver.execute_script("fnSearch();")
+        time.sleep(8)
 
-        headers = {
-            "accept": "*/*",
-            "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "ibuseragent": "IBSheet7",
-            "origin": "https://nicepay.okpos.co.kr",
-            "referer": "https://nicepay.okpos.co.kr/sale/sale/prod015.jsp?PAGE_OPTION=DAY",
-            "x-requested-with": "XMLHttpRequest",
-        }
-
-        payload = {
-            "1815c899-ee68-4ba3-a475-06ec62f4e576": "5aa1cd30-a9a7-4124-939d-7f28775e405a",
-            "S_CONTROLLER": "sale.sale.prod015",
-            "S_METHOD": "search",
-            "SHEETSEQ": "1",
-            "S_SAVENAME": "SALE_DATE|LCLS_NM|MCLS_NM|SCLS_NM|PROD_CD|PROD_NM|SALE_QTY|TOT_SALE_AMT|TOT_DC_AMT|DCM_SALE_AMT",
-            "ss_PAGE_OPTION": "DAY",
-            "date1_1": yesterday,
-            "date1_2": yesterday,
-            "date_period1": "366",
-            "ss_PAGE_SIZE": "100",
-            "ss_PAGE_NO1": "1",
-        }
-
-        res = session.post(url, headers=headers, data=payload)
-
-        print("OKPOS_MENU_STATUS:", res.status_code)
-        print("OKPOS_MENU_TEXT:", res.text[:1000])
-
-        data = res.json()
-
-        rows = data.get("Data", [])
-
+        rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
         print("OKPOS_MENU_ROW_COUNT:", len(rows))
 
         for row in rows:
+            cells = row.find_elements(By.TAG_NAME, "td")
+            values = [cell.text.strip() for cell in cells]
+            print("OKPOS_MENU_ROW:", values)
 
-            print("OKPOS_MENU_ROW:", row)
-
-            item_name = row.get("PROD_NM", "")
-            qty = to_int(str(row.get("SALE_QTY", "0")))
-            sales = to_int(str(row.get("DCM_SALE_AMT", "0")))
-
-            if not item_name or sales <= 0:
+            if len(values) < 7:
                 continue
 
-            result["유월의보리 본점"].append({
-                "item": item_name,
-                "qty": qty,
-                "sales": sales,
-            })
+            try:
+                # OKPOS 상품별 매출 화면 기준:
+                # 0 번호 / 1 대분류 / 2 중분류 / 3 소분류 / 4 상품코드 / 5 상품명 / 6 수량 / 7 총매출 / 8 할인 / 9 실매출
+                if not values[0].isdigit():
+                    continue
+
+                item_name = values[5]
+                qty = to_int(values[6])
+                sales = to_int(values[9]) if len(values) > 9 else to_int(values[7])
+
+                if not item_name or sales <= 0:
+                    continue
+
+                result["유월의보리 본점"].append({
+                    "item": item_name,
+                    "qty": qty,
+                    "sales": sales,
+                })
+
+            except Exception as e:
+                print("OKPOS_MENU_PARSE_ERROR:", values, e)
+                continue
 
         print("OKPOS_MENU_RESULT_COUNT:", len(result["유월의보리 본점"]))
         return result
 
     except Exception as e:
         print("OKPOS 메뉴 TOP 조회 실패:", e)
-        return {}
+        return result
 
     finally:
         driver.quit()
@@ -664,8 +654,8 @@ for acc in union_accounts:
 
         menu_top_data[store_name].extend(items)
         
-def is_target_menu(item_name):
-    name = (
+def normalize_menu_name(item_name):
+    return (
         item_name
         .replace(" ", "")
         .replace("&", "")
@@ -676,10 +666,15 @@ def is_target_menu(item_name):
         .lower()
     )
 
-    return (
-        ("한상보쌈" in name and "칼국수" in name)
-        or ("접시보쌈" in name)
-    )
+
+def is_hansang_bossam(item_name):
+    name = normalize_menu_name(item_name)
+    return "한상보쌈" in name and "칼국수" in name
+
+
+def is_plate_bossam(item_name):
+    name = normalize_menu_name(item_name)
+    return "접시보쌈" in name
     
 review_data = fetch_reviews()
 
@@ -716,19 +711,37 @@ for store_name in store_order:
     for idx, review in enumerate(reviews, start=1):
         review_text += f"\n{idx}. {review}"
 
-    target_menu_text = "보쌈세트 판매량: 데이터 없음"
-    target_items = []
+    hansang_text = "한상보쌈 판매량: 데이터 없음"
+    plate_text = "접시보쌈 판매량: 데이터 없음"
+    
+    hansang_items = []
+    plate_items = []
 
     if store_name in menu_top_data:
-        target_items = [
+
+        hansang_items = [
             item for item in menu_top_data[store_name]
-            if is_target_menu(item["item"])
+            if is_hansang_bossam(item["item"])
         ]
 
-    if target_items:
-        target_qty = sum(item["qty"] for item in target_items)
-        target_sales = sum(item["sales"] for item in target_items)
-        target_menu_text = f"보쌈세트 판매량: {target_qty}개 / {fmt(target_sales)}원"
+        plate_items = [
+            item for item in menu_top_data[store_name]
+            if is_plate_bossam(item["item"])
+        ]
+
+    if hansang_items:
+        hansang_qty = sum(item["qty"] for item in hansang_items)
+        hansang_sales = sum(item["sales"] for item in hansang_items)
+        hansang_text = (
+            f"한상보쌈 판매량: {hansang_qty}개 / {fmt(hansang_sales)}원"
+        )
+
+    if plate_items:
+        plate_qty = sum(item["qty"] for item in plate_items)
+        plate_sales = sum(item["sales"] for item in plate_items)
+        plate_text = (
+            f"접시보쌈 판매량: {plate_qty}개 / {fmt(plate_sales)}원"
+        )
 
     report_lines.append(f"""
 [{store_name}]
@@ -736,7 +749,8 @@ for store_name in store_order:
 영수건수(회전수): {data['receipt_count']}건 ({rotation}회전)
 테이블단가: {data['table_price']}원
 월누적매출: {data['month_sales']}원
-{target_menu_text}
+{hansang_text}
+{plate_text}
 
 {review_text}
 """)
