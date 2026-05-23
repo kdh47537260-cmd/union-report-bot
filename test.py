@@ -621,7 +621,7 @@ for store_name in store_order:
             ratio = (item["sales"] / sales_int * 100) if sales_int else 0
 
             menu_lines.append(
-                f"{idx}. {item['item']} / {item['qty']}개 / {fmt(item['sales'])}원 / 매출비중 {ratio:.1f}%"
+                f"{idx}. {item['item']} / {item['qty']}개 / {fmt(item['sales'])}원 / {ratio:.1f}%"
             )
 
         menu_text = "\n".join(menu_lines)
@@ -644,12 +644,18 @@ print(report)
 
 telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
-for chat_id in CHAT_IDS:
-    payload = {
-        "chat_id": chat_id,
-        "text": report
-    }
+MAX_LEN = 3500
 
-    requests.post(telegram_url, data=payload)
+for chat_id in CHAT_IDS:
+    for i in range(0, len(report), MAX_LEN):
+        chunk = report[i:i + MAX_LEN]
+
+        payload = {
+            "chat_id": chat_id,
+            "text": chunk
+        }
+
+        res = requests.post(telegram_url, data=payload)
+        print("텔레그램 응답:", res.status_code, res.text)
 
 print("텔레그램 전송 완료")
