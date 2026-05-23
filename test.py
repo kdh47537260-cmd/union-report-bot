@@ -473,7 +473,10 @@ def fetch_reviews():
         for store_name, url in REVIEW_URLS.items():
             driver.get(url)
             time.sleep(5)
-
+            
+            print("STORE:", store_name)
+            print(driver.page_source[:5000])
+            
             try:
                 driver.find_element(
                     By.XPATH,
