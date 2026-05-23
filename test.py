@@ -1,81 +1,196 @@
-import requests
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+
 from datetime import datetime, timedelta
+
+import time
 
 
 today = datetime.now() + timedelta(hours=9)
 yesterday = (today - timedelta(days=1)).strftime("%Y-%m-%d")
 
-TARGET_ITEMS = [
-    "한상보쌈+바지락칼국수",
-    "접시보쌈&보쌈무김치",
-]
+
+def get_driver():
+    options = Options()
+
+    options.add_argument("--headless=new")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--remote-debugging-port=9222")
+
+    driver = webdriver.Chrome(options=options)
+
+    return driver
 
 
-def fetch_okpos_menu_sales_api():
-    url = "https://nicepay.okpos.co.kr/sale/sale/ddd.htmlSheetAction"
+def switch_to_frame_containing_element(driver, element_id):
+    driver.switch_to.default_content()
 
-    headers = {
-        "Accept": "*/*",
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "IBUserAgent": "IBSheet7",
-        "Origin": "https://nicepay.okpos.co.kr",
-        "Referer": "https://nicepay.okpos.co.kr/sale/sale/prod011.jsp",
-        "X-Requested-With": "XMLHttpRequest",
-        "User-Agent": "Mozilla/5.0",
-        "Cookie": "JSESSIONID=95BA9E6E752016C718811CD647923926; cooMenuHV=H; date1_1=2026-05-23; date1_2=2026-05-23",
-    }
+    if driver.find_elements(By.ID, element_id):
+        return True
 
-    payload = {
-        "15f06991-5680-45c5-b9d4-1ebbec24b5e1": "4034cfc9-16fc-4a56-a141-5aa277e96c41",
+    frames = driver.find_elements(By.TAG_NAME, "iframe")
 
-        "S_CONTROLLER": "sale.sale.prod011",
-        "S_METHOD": "search",
-        "SHEETSEQ": "1",
-        "S_SAVENAME": "sSeq|LCLS_NM|MCLS_NM|SCLS_NM|SALE_DATE|PROD_CD|BAR_CD|MAP_PROD_CD|PROD_NM|VENDORS_NM|COLOR_CD|SIZE_STR_CD|SALE_QTY|PROD_WEIGHT|TOT_SALE_AMT|TOT_DC_AMT|DCM_SALE_AMT|DC_AMT_GEN|DC_AMT_SVC|DC_AMT_JCD|DC_AMT_CPN|DC_AMT_CST|DC_AMT_FOD|DC_AMT_PACK|DC_AMT_YAP|SHOP_CD",
-        "S_ORDERBY": "",
-        "ss_PROD_FG": "N",
-        "date1_1": yesterday,
-        "date1_2": yesterday,
-        "date_period1": "366",
-        "ss_PROD_CD": "",
-        "ss_PROD_NM": "",
-        "ss_LCLS_CD": "",
-        "ss_MCLS_CD": "",
-        "ss_SCLS_CD": "",
-        "ss_SIZE_CLS_CD": "",
-        "ss_CLS_TEXT": "전체",
-        "ss_BAR_CD": "",
-        "ss_VENDOR_CD": "",
-        "ss_VENDOR_NM": "전체",
-        "ss_VENDOR_INFO": "[]",
-        "ss_PAGE_SIZE": "100",
-        "ss_PAGE_NO1": "1",
-    }
+    for frame in frames:
+        try:
+            driver.switch_to.default_content()
+            driver.switch_to.frame(frame)
 
-    res = requests.post(url, headers=headers, data=payload, timeout=20)
+            if driver.find_elements(By.ID, element_id):
+                return True
 
-    print("STATUS:", res.status_code)
-    print("TEXT_LEN:", len(res.text))
-    print("TEXT_HEAD:", repr(res.text[:500]))
+        except:
+            continue
 
-    data = res.json()
+    driver.switch_to.default_content()
 
-    print("RESULT_CODE:", data.get("Result", {}).get("Code"))
-    print("RESULT_MESSAGE:", data.get("Result", {}).get("Message"))
-    print("DATA_COUNT:", len(data.get("Data", [])))
-
-    result = {}
-
-    for row in data.get("Data", []):
-        name = row.get("PROD_NM")
-
-        if name in TARGET_ITEMS:
-            result[name] = {
-                "qty": row.get("SALE_QTY", "0"),
-                "sales": f'{int(row.get("TOT_SALE_AMT", 0)):,}',
-            }
-
-    return result
+    return False
 
 
-print("FINAL_RESULT:", fetch_okpos_menu_sales_api())
+def fetch_okpos_menu_sales():
+    driver = get_driver()
+
+    try:
+        driver.get("https://nicepay.okpos.co.kr/")
+
+        time.sleep(2)
+
+        print("OKPOS 접속 완료")
+
+        # 로그인
+        driver.find_element(By.ID, "user_id").send_keys("n46083")
+        driver.find_element(By.ID, "user_pwd").send_keys("02504")
+
+        driver.execute_script("doSubmit();")
+
+        time.sleep(5)
+
+        print("로그인 완료")
+
+        # 매출관리 메뉴 오픈
+        driver.execute_script("""
+        cswmButtonSelect('cswmMenuButtonGroup_15', 'Group_15');
+        cswmButtonDown('cswmMenuButtonGroup_15', 'Group_15');
+        """)
+
+        time.sleep(2)
+
+        print("매출관리 메뉴 오픈")
+
+        # 매출현황 hover
+        sales_status = driver.find_element(By.ID, "cswmItemGroup_15_10")
+
+        driver.execute_script("""
+        arguments[0].dispatchEvent(
+            new MouseEvent('mouseover', {
+                bubbles:true,
+                cancelable:true,
+                view:window
+            })
+        );
+        """, sales_status)
+
+        time.sleep(2)
+
+        print("매출현황 hover 완료")
+
+        # 상품별매출 클릭
+        product_menu = driver.find_element(By.ID, "cswmItem10_56")
+
+        driver.execute_script("""
+        arguments[0].dispatchEvent(
+            new MouseEvent('click', {
+                bubbles:true,
+                cancelable:true,
+                view:window
+            })
+        );
+        """, product_menu)
+
+        time.sleep(8)
+
+        print("상품별매출 클릭 완료")
+
+        # iframe 이동
+        driver.switch_to.default_content()
+
+        found = switch_to_frame_containing_element(driver, "date1_1")
+
+        if not found:
+            print("프레임 못찾음")
+            return {}
+
+        print("프레임 진입 성공")
+
+        # 날짜 입력
+        driver.execute_script(f"""
+        document.getElementById('date1_1').removeAttribute('readonly');
+        document.getElementById('date1_1').value = '{yesterday}';
+
+        document.getElementById('date1_2').removeAttribute('readonly');
+        document.getElementById('date1_2').value = '{yesterday}';
+        """)
+
+        time.sleep(1)
+
+        print("날짜 입력 완료")
+
+        # 조회
+        driver.execute_script("fnSearch();")
+
+        time.sleep(8)
+
+        print("조회 완료")
+
+        rows = driver.find_elements(By.CSS_SELECTOR, "tr")
+
+        print("ROW_COUNT:", len(rows))
+
+        target_items = [
+            "한상보쌈+바지락칼국수",
+            "접시보쌈&보쌈무김치"
+        ]
+
+        result = {}
+
+        for row in rows:
+            cols = [
+                c.text.strip()
+                for c in row.find_elements(By.TAG_NAME, "td")
+            ]
+
+            if len(cols) < 7:
+                continue
+
+            try:
+                item_name = cols[3]
+                qty = cols[5]
+                sales = cols[6]
+
+                print(cols)
+
+                if item_name in target_items:
+                    result[item_name] = {
+                        "qty": qty,
+                        "sales": sales
+                    }
+
+                    print("MATCH:", item_name, qty, sales)
+
+            except Exception as e:
+                print("PARSE_ERROR:", cols, e)
+
+        return result
+
+    except Exception as e:
+        print("OKPOS 상품별매출 조회 실패:", e)
+        return {}
+
+    finally:
+        driver.quit()
+
+
+print(fetch_okpos_menu_sales())
