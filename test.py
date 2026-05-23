@@ -514,14 +514,23 @@ def fetch_okpos_menu_top_sales():
         res = session.post(url, headers=headers, data=payload)
 
         print("OKPOS_MENU_STATUS:", res.status_code)
-        print("OKPOS_MENU_TEXT_HEAD:", res.text[:1000])
+        print("OKPOS_MENU_RAW:", repr(res.text[:3000]))
 
         data = res.json()
 
         store_name = "유월의보리 본점"
         result[store_name] = []
 
-        rows = data.get("Data", [])
+        print("OKPOS_MENU_KEYS:", data.keys() if isinstance(data, dict) else type(data))
+
+        rows = (
+            data.get("Data")
+            or data.get("data")
+            or data.get("rows")
+            or data.get("Rows")
+            or data.get("SearchData")
+            or []
+)
         print("OKPOS_MENU_ROW_COUNT:", len(rows))
 
         for row in rows:
