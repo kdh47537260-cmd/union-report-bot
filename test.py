@@ -473,18 +473,16 @@ def fetch_reviews():
         for store_name, url in REVIEW_URLS.items():
             driver.get(url)
             time.sleep(5)
-            
+
             print("STORE:", store_name)
             print(driver.page_source[:5000])
-            
+
             try:
                 driver.find_element(
                     By.XPATH,
                     "//a[contains(text(), '최신순')]"
                 ).click()
-
                 time.sleep(3)
-
             except Exception:
                 pass
 
@@ -495,73 +493,82 @@ def fetch_reviews():
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                 time.sleep(2)
 
-                more_buttons = driver.find_elements(By.CSS_SELECTOR, "span.TeItc")
-
-                for btn in more_buttons:
-                    try:
-                        if "펼쳐서 더보기" in btn.text:
-                            driver.execute_script("arguments[0].click();", btn)
-                            time.sleep(1)
-                    except Exception:
-                        pass
-
                 cards = driver.find_elements(By.XPATH, "//li[.//time]")
 
                 current_count = 0
 
-for card in cards:
-    try:
-        date_text = card.find_element(By.TAG_NAME, "time").text.strip()
+                for card in cards:
+                    try:
+                        date_text = card.find_element(By.TAG_NAME, "time").text.strip()
+                        print("DATE:", date_text)
 
-        print("DATE:", date_text)
+                        if date_text.startswith(review_target_date):
+                            current_count += 1
+                    except Exception:
+                        pass
 
-        if not date_text.startswith(review_target_date):
-            continue
+                if current_count == last_count:
+                    same_count += 1
+                else:
+                    same_count = 0
+                    last_count = current_count
 
-        review_candidates = card.find_elements(
-            By.CSS_SELECTOR,
-            "a[data-pui-click-code='rvshowless'], a[data-pui-click-code='rvshowmore']"
-        )
+                if same_count >= 3:
+                    break
 
-        for review_el in review_candidates:
-            review_text = review_el.get_attribute("innerText").strip()
-            review_text = review_text.replace("\n", " ").strip()
+                if len(cards) > 250:
+                    break
 
-            if not review_text:
-                continue
-            if len(review_text) < 10:
-                continue
-            if "리뷰" in review_text and "사진" in review_text:
-                continue
-            if "팔로우" in review_text:
-                continue
-            if "개의 리뷰가 더 있습니다" in review_text:
-                continue
-            if "반응 남기기" in review_text:
-                continue
-            if "방문예약" in review_text:
-                continue
-            if "대기 시간" in review_text:
-                continue
-            if "친목" in review_text:
-                continue
-            if "데이트" in review_text:
-                continue
-            if "연인・배우자" in review_text:
-                continue
-            if "지인・동료" in review_text:
-                continue
-            if review_text.startswith("+"):
-                continue
+            cards = driver.find_elements(By.XPATH, "//li[.//time]")
+            review_texts = []
 
-            print("REVIEW:", review_text)
+            for card in cards:
+                try:
+                    date_text = card.find_element(By.TAG_NAME, "time").text.strip()
+                    print("DATE:", date_text)
 
-            review_texts.append(review_text)
-            break
+                    if not date_text.startswith(review_target_date):
+                        continue
 
-    except Exception:
-        pass
+                    review_candidates = card.find_elements(
+                        By.CSS_SELECTOR,
+                        "a[data-pui-click-code='rvshowless'], a[data-pui-click-code='rvshowmore']"
+                    )
 
+                    for review_el in review_candidates:
+                        review_text = review_el.get_attribute("innerText").strip()
+                        review_text = review_text.replace("\n", " ").strip()
+
+                        if not review_text:
+                            continue
+                        if len(review_text) < 10:
+                            continue
+                        if "리뷰" in review_text and "사진" in review_text:
+                            continue
+                        if "팔로우" in review_text:
+                            continue
+                        if "개의 리뷰가 더 있습니다" in review_text:
+                            continue
+                        if "반응 남기기" in review_text:
+                            continue
+                        if "방문예약" in review_text:
+                            continue
+                        if "대기 시간" in review_text:
+                            continue
+                        if "친목" in review_text:
+                            continue
+                        if "데이트" in review_text:
+                            continue
+                        if "연인・배우자" in review_text:
+                            continue
+                        if "지인・동료" in review_text:
+                            continue
+                        if review_text.startswith("+"):
+                            continue
+
+                        print("REVIEW:", review_text)
+                        review_texts.append(review_text)
+                        break
 
                 except Exception:
                     pass
