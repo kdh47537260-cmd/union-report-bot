@@ -286,7 +286,7 @@ def fetch_item2_top_sales(acc):
             values = [cell.text.strip() for cell in cells]
             print("ITEM2_ROW:", values)
             
-            if len(values) < 4:
+            if len(values) < 6:
                 continue
 
             try:
@@ -294,9 +294,9 @@ def fetch_item2_top_sales(acc):
                 if not values[0].isdigit():
                     continue
 
-                item_name = values[1]
-                qty = to_int(values[2])
-                sales = to_int(values[3])
+                item_name = values[3]
+                qty = to_int(values[4])
+                sales = to_int(values[5])
 
                 if not item_name or sales <= 0:
                     continue
