@@ -83,22 +83,23 @@ try:
 
     for row in rows:
 
-        cells = row.find_elements(By.TAG_NAME, "td")
-        values = [cell.text.strip() for cell in cells]
-
-        print("ROW:", values)
-
-        if len(values) < 2:
-            continue
-
         try:
-            joined = " ".join(values)
+            item_td = row.find_element(By.CSS_SELECTOR, "td.HideCol0C9")
+            qty_td = row.find_element(By.CSS_SELECTOR, "td.HideCol0C13")
+            sales_td = row.find_element(By.CSS_SELECTOR, "td.HideCol0C15")
 
-            if "한상보쌈" in joined or "접시보쌈" in joined:
-                print("TARGET_ROW:", values)
+            item_name = item_td.text.strip()
+            qty = to_int(qty_td.text)
+            sales = to_int(sales_td.text)
 
-        except Exception as e:
-            print("PARSE_ERROR:", e)
+            if "한상보쌈" in item_name:
+                print("한상보쌈:", qty, sales)
+
+            if "접시보쌈" in item_name:
+                print("접시보쌈:", qty, sales)
+
+        except Exception:
+            continue
 
 except Exception as e:
     print("에러:", e)
