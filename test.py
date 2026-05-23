@@ -495,42 +495,29 @@ def fetch_okpos_menu_top_sales():
         time.sleep(1)
         driver.execute_script("fnSearch();")
         time.sleep(8)
+        res = session.post(url, headers=headers, data=payload)
+        data = res.json()
 
-        rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+        rows = data.get("Data", [])
+
         print("OKPOS_MENU_ROW_COUNT:", len(rows))
 
         for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            values = [cell.text.strip() for cell in cells]
-            print("OKPOS_MENU_ROW:", values)
 
-            if len(values) < 7:
+            item_name = row.get("PROD_NM", "")
+            qty = to_int(row.get("SALE_QTY", "0"))
+            sales = to_int(row.get("DCM_SALE_AMT", "0"))
+
+            if not item_name or qty <= 0:
                 continue
 
-            try:
-                # OKPOS 상품별 매출 화면 기준:
-                # 0 번호 / 1 대분류 / 2 중분류 / 3 소분류 / 4 상품코드 / 5 상품명 / 6 수량 / 7 총매출 / 8 할인 / 9 실매출
-                if not values[0].isdigit():
-                    continue
+            result["유월의보리 본점"].append({
+                "item": item_name,
+                "qty": qty,
+                "sales": sales,
+            })
 
-                item_name = values[5]
-                qty = to_int(values[6])
-                sales = to_int(values[9]) if len(values) > 9 else to_int(values[7])
-
-                if not item_name or sales <= 0:
-                    continue
-
-                result["유월의보리 본점"].append({
-                    "item": item_name,
-                    "qty": qty,
-                    "sales": sales,
-                })
-
-            except Exception as e:
-                print("OKPOS_MENU_PARSE_ERROR:", values, e)
-                continue
-
-        print("OKPOS_MENU_RESULT_COUNT:", len(result["유월의보리 본점"]))
+        print("OKPOS_MENU_RESULT:", result)
         return result
 
     except Exception as e:
