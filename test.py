@@ -231,7 +231,8 @@ def fetch_menu_top_sales(acc):
     for row in rows:
 
         cells = [td.get_text(strip=True) for td in row.select("td")]
-
+        print("CELLS:", cells)
+        
         if len(cells) < 7:
             continue
 
@@ -242,10 +243,8 @@ def fetch_menu_top_sales(acc):
             continue
 
         try:
-            store_cell = row.select_one("td:nth-of-type(2) span")
-            store_name_raw = store_cell.get_text(strip=True) if store_cell else cells[1]
-            store_name = clean_store_name(store_name_raw)
-
+            store_name = "유월의보리 양재점" if acc["id"] == "sz77971" else "유월의보리 신내점"
+            
             item_name = cells[4]
 
             qty = to_int(cells[5])
@@ -268,7 +267,12 @@ def fetch_menu_top_sales(acc):
         except Exception:
             continue
 
-    return result
+        for store_name in result:
+            result[store_name] = sorted(
+                result[store_name],
+                key=lambda x: x["qty"],
+                reverse=True
+        return result
 
 def fetch_item2_top_sales(acc):
 
