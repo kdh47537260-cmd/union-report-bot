@@ -1,9 +1,8 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-import requests
-import time
 from datetime import datetime, timedelta
+import time
 
 
 today = datetime.now() + timedelta(hours=9)
@@ -26,6 +25,47 @@ def get_driver():
     return webdriver.Chrome(options=options)
 
 
+def switch_to_frame_containing_element(driver, element_id):
+
+    try:
+        exists = driver.execute_script(
+            "return document.getElementById(arguments[0]) !== null;",
+            element_id
+        )
+
+        if exists:
+            return True
+
+    except Exception:
+        pass
+
+    frames = (
+        driver.find_elements(By.TAG_NAME, "frame")
+        + driver.find_elements(By.TAG_NAME, "iframe")
+    )
+
+    for frame in frames:
+
+        try:
+            driver.switch_to.frame(frame)
+
+            found = switch_to_frame_containing_element(driver, element_id)
+
+            if found:
+                return True
+
+            driver.switch_to.parent_frame()
+
+        except Exception:
+
+            try:
+                driver.switch_to.parent_frame()
+            except Exception:
+                pass
+
+    return False
+
+
 driver = get_driver()
 
 try:
@@ -38,7 +78,7 @@ try:
     driver.execute_script("doSubmit();")
     time.sleep(5)
 
-    # 매출현황 메뉴
+    # 매출관리
     driver.execute_script("""
     cswmButtonSelect('cswmMenuButtonGroup_15', 'Group_15');
     cswmButtonDown('cswmMenuButtonGroup_15', 'Group_15');
@@ -46,6 +86,7 @@ try:
 
     time.sleep(2)
 
+    # 매출현황 hover
     sales_status = driver.find_element(By.ID, "cswmItemGroup_15_10")
 
     driver.execute_script("""
@@ -60,7 +101,7 @@ try:
 
     time.sleep(2)
 
-    # 상품별매출 클릭
+    # 상품별 클릭
     prod_menu = driver.find_element(By.ID, "cswmItem10_59")
 
     driver.execute_script("""
@@ -77,10 +118,32 @@ try:
 
     print("상품별매출 페이지 진입 완료")
 
-    rows = driver.find_elements(By.CSS_SELECTOR, "tr[role='row']")
-    
-    for row in rows[:10]:
-        print(row.get_attribute("outerHTML"))
+    driver.switch_to.default_content()
+
+    found = switch_to_frame_containing_element(driver, "date1_1")
+
+    if not found:
+        print("FRAME_NOT_FOUND")
+        driver.quit()
+        exit()
+
+    # 날짜 입력
+    driver.execute_script(f"""
+    document.getElementById('date1_1').removeAttribute('readonly');
+    document.getElementById('date1_1').value = '{yesterday}';
+
+    document.getElementById('date1_2').removeAttribute('readonly');
+    document.getElementById('date1_2').value = '{yesterday}';
+    """)
+
+    time.sleep(1)
+
+    # 조회
+    driver.execute_script("fnSearch();")
+
+    time.sleep(8)
+
+    rows = driver.find_elements(By.CSS_SELECTOR, "tr")
 
     print("ROW_COUNT:", len(rows))
 
