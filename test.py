@@ -24,6 +24,35 @@ def get_driver():
 
     return webdriver.Chrome(options=options)
 
+def switch_to_review_iframe(driver):
+
+    iframes = driver.find_elements(By.TAG_NAME, "iframe")
+
+    print("iframe 개수:", len(iframes))
+
+    for idx, iframe in enumerate(iframes):
+
+        try:
+            driver.switch_to.default_content()
+            driver.switch_to.frame(iframe)
+
+            time.sleep(2)
+
+            cards = driver.find_elements(By.XPATH, "//li[.//time]")
+
+            print(f"{idx}번 iframe 카드 수:", len(cards))
+
+            if len(cards) > 0:
+                print("리뷰 iframe 찾음")
+                return True
+
+        except Exception as e:
+            print("iframe 실패:", e)
+
+    driver.switch_to.default_content()
+
+    return False
+    
 def fetch_reviews():
     driver = get_driver()
     review_data = {}
@@ -37,6 +66,12 @@ def fetch_reviews():
             driver.get(url)
             time.sleep(7)
 
+            found = switch_to_review_iframe(driver)
+
+            if not found:
+            print("리뷰 iframe 못찾음")
+            continue
+    
             print("현재 URL:", driver.current_url)
             print("페이지 제목:", driver.title)
 
