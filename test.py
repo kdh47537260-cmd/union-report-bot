@@ -4,13 +4,13 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.service import Service
 from datetime import datetime, timedelta
 import requests
-import time
+import timef
 
 BOT_TOKEN = "8886052539:AAGrUs30DNxPsyRtL7RlDHOdeQGSDwV7cUk"
 
 CHAT_IDS = [
     "1490548765",   # 도현
-]
+]f
 
 today = datetime.now() + timedelta(hours=9)
 yesterday = (today - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -471,22 +471,17 @@ def fetch_reviews():
 
     try:
         for store_name, url in REVIEW_URLS.items():
-          driver.get(url)
-            
-          time.sleep(10)
-            
-          driver.execute_script("window.scrollTo(0, 1000);")
-          time.sleep(3)
+            driver.get(url)
+            time.sleep(5)
 
-          print("STORE:", store_name)
-          print(driver.page_source[:5000])
-    
-          try:
+            try:
                 driver.find_element(
                     By.XPATH,
                     "//a[contains(text(), '최신순')]"
                 ).click()
+
                 time.sleep(3)
+
             except Exception:
                 pass
 
@@ -497,6 +492,16 @@ def fetch_reviews():
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                 time.sleep(2)
 
+                more_buttons = driver.find_elements(By.CSS_SELECTOR, "span.TeItc")
+
+                for btn in more_buttons:
+                    try:
+                        if "펼쳐서 더보기" in btn.text:
+                            driver.execute_script("arguments[0].click();", btn)
+                            time.sleep(1)
+                    except Exception:
+                        pass
+
                 cards = driver.find_elements(By.XPATH, "//li[.//time]")
 
                 current_count = 0
@@ -504,10 +509,10 @@ def fetch_reviews():
                 for card in cards:
                     try:
                         date_text = card.find_element(By.TAG_NAME, "time").text.strip()
-                        print("DATE:", date_text)
 
                         if date_text.startswith(review_target_date):
                             current_count += 1
+
                     except Exception:
                         pass
 
@@ -529,7 +534,6 @@ def fetch_reviews():
             for card in cards:
                 try:
                     date_text = card.find_element(By.TAG_NAME, "time").text.strip()
-                    print("DATE:", date_text)
 
                     if not date_text.startswith(review_target_date):
                         continue
@@ -569,8 +573,9 @@ def fetch_reviews():
                             continue
                         if review_text.startswith("+"):
                             continue
-
+                        
                         print("REVIEW:", review_text)
+
                         review_texts.append(review_text)
                         break
 
