@@ -77,7 +77,10 @@ try:
 
     print("상품별매출 페이지 진입 완료")
 
-    rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+    rows = driver.find_elements(By.CSS_SELECTOR, "tr[role='row']")
+    
+    for row in rows[:10]:
+        print(row.get_attribute("outerHTML"))
 
     print("ROW_COUNT:", len(rows))
 
