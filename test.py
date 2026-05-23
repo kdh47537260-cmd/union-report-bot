@@ -148,7 +148,8 @@ try:
     print("ROW_COUNT:", len(rows))
 
     for row in rows:
-
+        print("ROW_HTML:", row.get_attribute("outerHTML")[:1500])
+    
         try:
             item_td = row.find_element(By.CSS_SELECTOR, "td.HideCol0C9")
             qty_td = row.find_element(By.CSS_SELECTOR, "td.HideCol0C13")
