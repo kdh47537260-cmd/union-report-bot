@@ -455,8 +455,104 @@ def fetch_okpos():
         print("OKPOS 조회 실패:", e)
         return {}
 
+        finally:
+        driver.quit()
+
+
+def fetch_okpos_menu_top_sales():
+    driver = get_driver()
+    result = {}
+
+    try:
+        driver.get("https://nicepay.okpos.co.kr/")
+        time.sleep(2)
+
+        driver.find_element(By.ID, "user_id").send_keys("n46083")
+        driver.find_element(By.ID, "user_pwd").send_keys("02504")
+        driver.execute_script("doSubmit();")
+        time.sleep(5)
+
+        cookies = driver.get_cookies()
+
+        session = requests.Session()
+
+        for cookie in cookies:
+            session.cookies.set(cookie["name"], cookie["value"])
+
+        url = "https://nicepay.okpos.co.kr/sale/sale/ddd.htmlSheetAction"
+
+        headers = {
+            "accept": "*/*",
+            "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "ibuseragent": "IBSheet7",
+            "origin": "https://nicepay.okpos.co.kr",
+            "referer": "https://nicepay.okpos.co.kr/sale/sale/prod015.jsp?PAGE_OPTION=DAY",
+            "x-requested-with": "XMLHttpRequest",
+            "user-agent": "Mozilla/5.0",
+        }
+
+        payload = {
+            "S_CONTROLLER": "sale.sale.prod015",
+            "S_METHOD": "search",
+            "SHEETSEQ": "1",
+            "S_SAVENAME": "SALE_DATE|LCLS_NM|MCLS_NM|SCLS_NM|PROD_CD|PROD_NM|SALE_QTY|TOT_SALE_AMT|TOT_DC_AMT|DCM_SALE_AMT",
+            "S_ORDERBY": "",
+            "ss_PAGE_OPTION": "DAY",
+            "date1_1": yesterday,
+            "date1_2": yesterday,
+            "date_period1": "366",
+            "ss_PROD_CD": "",
+            "ss_PROD_NM": "",
+            "ss_LCLS_CD": "",
+            "ss_MCLS_CD": "",
+            "ss_SCLS_CD": "",
+            "ss_SIZE_CLS_CD": "",
+            "ss_CLS_TEXT": "전체",
+            "ss_PAGE_SIZE": "100",
+            "ss_PAGE_NO1": "1",
+        }
+
+        res = session.post(url, headers=headers, data=payload)
+
+        print("OKPOS_MENU_STATUS:", res.status_code)
+        print("OKPOS_MENU_TEXT_HEAD:", res.text[:1000])
+
+        data = res.json()
+
+        store_name = "유월의보리 본점"
+        result[store_name] = []
+
+        rows = data.get("Data", [])
+
+        print("OKPOS_MENU_ROW_COUNT:", len(rows))
+
+        for row in rows:
+            print("OKPOS_MENU_ROW:", row)
+
+            item_name = row.get("PROD_NM", "")
+            qty = to_int(str(row.get("SALE_QTY", "0")))
+            sales = to_int(str(row.get("DCM_SALE_AMT", "0")))
+
+            if not item_name or sales <= 0:
+                continue
+
+            result[store_name].append({
+                "item": item_name,
+                "qty": qty,
+                "sales": sales,
+            })
+
+        print("OKPOS_MENU_RESULT_COUNT:", len(result[store_name]))
+
+        return result
+
+    except Exception as e:
+        print("OKPOS 메뉴 TOP 조회 실패:", e)
+        return {}
+
     finally:
         driver.quit()
+
 
 PLACE_IDS = {
     "유월의보리 본점": "1265080366",
@@ -552,6 +648,7 @@ for acc in union_accounts:
     all_store_data.update(fetch_unionpos_account(acc))
 
 menu_top_data = {}
+menu_top_data.update(fetch_okpos_menu_top_sales())
 
 for acc in union_accounts:
 
