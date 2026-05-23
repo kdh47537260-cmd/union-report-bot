@@ -571,7 +571,7 @@ for acc in union_accounts:
 
         menu_top_data[store_name].extend(items)
         
-def is_target_menu(item_name):
+def is_hansang_menu(item_name):
     name = (
         item_name
         .replace(" ", "")
@@ -584,6 +584,21 @@ def is_target_menu(item_name):
     )
 
     return "한상보쌈" in name and "칼국수" in name
+
+
+def is_plate_menu(item_name):
+    name = (
+        item_name
+        .replace(" ", "")
+        .replace("&", "")
+        .replace("+", "")
+        .replace("SET", "")
+        .replace("set", "")
+        .replace("세트", "")
+        .lower()
+    )
+
+    return "접시보쌈" in name and "무김치" in name
     
 review_data = fetch_reviews()
 
@@ -620,41 +635,32 @@ for store_name in store_order:
     for idx, review in enumerate(reviews, start=1):
         review_text += f"\n{idx}. {review}"
 
-    target_menu_text = "한상보쌈&칼국수: 데이터 없음"
-    target_items = []
+    hansang_text = "한상보쌈&칼국수: 데이터 없음"
+    plate_text = "접시보쌈&무김치: 데이터 없음"
 
     if store_name in menu_top_data:
-        target_items = [
+
+        hansang_items = [
             item for item in menu_top_data[store_name]
-            if is_target_menu(item["item"])
+            if is_hansang_menu(item["item"])
         ]
 
-    if target_items:
-        target_qty = sum(item["qty"] for item in target_items)
-        target_sales = sum(item["sales"] for item in target_items)
-        target_menu_text = f"한상보쌈&칼국수: {target_qty}개 / {fmt(target_sales)}원"
-    
-    menu_text = "판매 메뉴: 데이터 없음"
+        if hansang_items:
+            qty = sum(item["qty"] for item in hansang_items)
+            sales = sum(item["sales"] for item in hansang_items)
 
-    if store_name in menu_top_data:
-        sorted_items = sorted(
-            menu_top_data[store_name],
-            key=lambda x: x["sales"],
-            reverse=True
-        )
+            hansang_text = f"한상보쌈&칼국수: {qty}개 / {fmt(sales)}원"
 
-        sales_int = to_int(data["total_sales"])
+        plate_items = [
+            item for item in menu_top_data[store_name]
+            if is_plate_menu(item["item"])
+        ]
 
-        menu_lines = ["판매 메뉴"]
+        if plate_items:
+            qty = sum(item["qty"] for item in plate_items)
+            sales = sum(item["sales"] for item in plate_items)
 
-        for idx, item in enumerate(sorted_items, start=1):
-            ratio = (item["sales"] / sales_int * 100) if sales_int else 0
-
-            menu_lines.append(
-                f"{idx}. {item['item']} / {item['qty']}개 / {fmt(item['sales'])}원 / {ratio:.1f}%"
-            )
-
-        menu_text = "\n".join(menu_lines)
+            plate_text = f"접시보쌈&무김치: {qty}개 / {fmt(sales)}원"
 
     report_lines.append(f"""
 [{store_name}]
@@ -662,9 +668,8 @@ for store_name in store_order:
 영수건수(회전수): {data['receipt_count']}건 ({rotation}회전)
 테이블단가: {data['table_price']}원
 월누적매출: {data['month_sales']}원
-{target_menu_text}
-
-{menu_text}
+{hansang_text}
+{plate_text}
 
 {review_text}
 """)
