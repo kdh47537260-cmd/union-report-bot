@@ -472,11 +472,15 @@ def fetch_reviews():
     try:
         for store_name, url in REVIEW_URLS.items():
             driver.get(url)
-            time.sleep(5)
+            
+            time.sleep(10)
+            
+          driver.execute_script("window.scrollTo(0, 1000);")
+          time.sleep(3)
 
-            print("STORE:", store_name)
-            print(driver.page_source[:5000])
-
+          print("STORE:", store_name)
+          print(driver.page_source[:5000])
+    
             try:
                 driver.find_element(
                     By.XPATH,
