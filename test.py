@@ -1,4 +1,3 @@
-from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from datetime import datetime, timedelta
@@ -170,100 +169,80 @@ def fetch_unionpos_account(acc):
         driver.quit()
 
 
-def union_login_session(acc):
-    session = requests.Session()
-
-    login_url = "https://asp2.unionpos.co.kr/v2/loginCheck"
-
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "X-Requested-With": "XMLHttpRequest",
-        "Referer": "https://asp2.unionpos.co.kr/",
-        "Origin": "https://asp2.unionpos.co.kr",
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-    }
-
-    payload = {
-        "userId": acc["id"],
-        "password": acc["pw"],
-    }
-
-    res = session.post(login_url, data=payload, headers=headers)
-
-    print("유니온 로그인:", acc["id"], res.status_code, res.text[:200])
-
-    return session
-
 def fetch_menu_top_sales(acc):
 
-    session = union_login_session(acc)
+    driver = get_driver()
     result = {}
 
-    url = "https://asp2.unionpos.co.kr/v2/sales/product/storeItem"
+    try:
+        driver.get("https://asp2.unionpos.co.kr")
+        time.sleep(2)
 
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Referer": "https://asp2.unionpos.co.kr/v2/sales/product/storeItem",
-        "Origin": "https://asp2.unionpos.co.kr",
-    }
+        driver.find_element(By.ID, "userId").send_keys(acc["id"])
+        driver.find_element(By.ID, "password").send_keys(acc["pw"])
+        driver.find_element(By.ID, "btnLogin").click()
 
-    payload = {
-        "pageNo": "1",
-        "rangeDate": f"{yesterday} ~ {yesterday}",
-        "startDate": yesterday,
-        "endDate": yesterday,
-        "searchType": "ItemName",
-        "searchKeyword": "",
-        "pageSize": "300",
-    }
+        time.sleep(3)
 
-    res = session.get(url, params=payload, headers=headers)
-
-    soup = BeautifulSoup(res.text, "html.parser")
-    rows = soup.select("table#tableList tbody tr")
-
-    for row in rows:
-        cells = [td.get_text(strip=True) for td in row.select("td")]
-
-        if len(cells) < 7:
-            continue
-
-        if not cells[0].strip().isdigit():
-            continue
-
-        try:
-            store_name = clean_store_name(cells[1])
-            item_name = cells[4]
-            qty = to_int(cells[5])
-            sales = to_int(cells[6])
-
-            if not store_name or not item_name or sales <= 0:
-                continue
-
-
-            if store_name not in result:
-                result[store_name] = []
-
-            result[store_name].append({
-                "item": item_name,
-                "qty": qty,
-                "sales": sales,
-            })
-
-            print("MENU_SAVE:", store_name, item_name, qty, sales)
-
-        except Exception as e:
-            print("MENU_PARSE_ERROR:", cells, e)
-            continue
-
-    for store_name in result:
-        result[store_name] = sorted(
-            result[store_name],
-            key=lambda x: x["qty"],
-            reverse=True
+        url = (
+            "https://asp2.unionpos.co.kr/v2/sales/product/storeItem"
+            f"?pageNo=1"
+            f"&rangeDate={yesterday}+~+{yesterday}"
+            f"&startDate={yesterday}"
+            f"&endDate={yesterday}"
+            f"&searchType=ItemName"
+            f"&searchKeyword="
+            f"&pageSize=100"
         )
 
-    return result
+        driver.get(url)
+
+        time.sleep(5)
+
+        rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+
+        for row in rows:
+
+            cells = row.find_elements(By.TAG_NAME, "td")
+            values = [cell.text.strip() for cell in cells]
+            print("MENU_ROW:", values)
+            
+            if len(values) < 4:
+                continue
+
+            try:
+
+                if not values[0].isdigit():
+                    continue
+                store_name = clean_store_name(values[1])
+                item_name = values[4]
+
+                qty = to_int(values[5])
+                sales = to_int(values[6])
+
+                if sales <= 0:
+                    continue
+
+                if store_name not in result:
+                    result[store_name] = []
+
+                result[store_name].append({
+                    "item": item_name,
+                    "qty": qty,
+                    "sales": sales,
+                })
+
+            except Exception:
+                continue
+
+        return result
+
+    except Exception as e:
+        print("메뉴 TOP 조회 실패:", e)
+        return {}
+
+    finally:
+        driver.quit()
 
 def fetch_item2_top_sales(acc):
 
@@ -630,7 +609,7 @@ for store_name in store_order:
     if store_name in menu_top_data:
         sorted_items = sorted(
             menu_top_data[store_name],
-            key=lambda x: x["qty"],
+            key=lambda x: x["sales"],
             reverse=True
         )
 
