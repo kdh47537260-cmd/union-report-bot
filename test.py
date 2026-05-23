@@ -83,57 +83,30 @@ def fetch_reviews():
                 ).click()
 
                 print("최신순 클릭 완료")
-                time.sleep(3)
+                time.sleep(5.5)
 
             except Exception as e:
                 print("최신순 클릭 실패:", e)
 
-            last_count = 0
-            same_count = 0
+                scroll_waits = [3, 2.1, 6]
 
-            while True:
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(2)
+                for i in range(3):
 
-                more_buttons = driver.find_elements(By.CSS_SELECTOR, "span.TeItc")
-                print("더보기 후보 수:", len(more_buttons))
+                    driver.execute_script(
+                        "window.scrollTo(0, document.body.scrollHeight);"
+    )
 
-                for btn in more_buttons:
-                    try:
-                        if "펼쳐서 더보기" in btn.text:
-                            driver.execute_script("arguments[0].click();", btn)
-                            print("펼쳐서 더보기 클릭")
-                            time.sleep(1)
-                    except Exception:
-                        pass
+                    print(f"스크롤 {i + 1}회")
 
-                cards = driver.find_elements(By.XPATH, "//li[.//time]")
-                print("현재 카드 수:", len(cards))
+                    wait_time = scroll_waits[i]
 
-                current_count = 0
+                    print(f"{wait_time}초 대기")
 
-                for card in cards:
-                    try:
-                        date_text = card.find_element(By.TAG_NAME, "time").text.strip()
-                        print("DATE_TEXT:", date_text)
+                    time.sleep(wait_time)
 
-                        if review_target_date in date_text:
-                            current_count += 1
+                    cards = driver.find_elements(By.XPATH, "//li[.//time]")
 
-                    except Exception:
-                        pass
-
-                if current_count == last_count:
-                    same_count += 1
-                else:
-                    same_count = 0
-                    last_count = current_count
-
-                if same_count >= 3:
-                    break
-
-                if len(cards) > 250:
-                    break
+                    print("현재 카드 수:", len(cards))
 
             cards = driver.find_elements(By.XPATH, "//li[.//time]")
             review_texts = []
