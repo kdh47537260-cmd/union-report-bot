@@ -242,7 +242,10 @@ def fetch_menu_top_sales(acc):
             continue
 
         try:
-            store_name = clean_store_name(cells[1])
+            store_cell = row.select_one("td:nth-of-type(2) span")
+            store_name_raw = store_cell.get_text(strip=True) if store_cell else cells[1]
+            store_name = clean_store_name(store_name_raw)
+
             item_name = cells[4]
 
             qty = to_int(cells[5])
