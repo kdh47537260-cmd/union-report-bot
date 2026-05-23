@@ -147,7 +147,12 @@ try:
         By.CSS_SELECTOR,
         "div.GMBodyMid table tbody tr.GMDataRow"
     )
-    
+
+    rows = [
+        row for row in rows
+        if "Grids[1]" in row.get_attribute("outerHTML")
+    ]
+
     print("ROW_COUNT:", len(rows))
 
     for row in rows:
