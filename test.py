@@ -471,9 +471,9 @@ def fetch_reviews():
 
     try:
         for store_name, url in REVIEW_URLS.items():
-            driver.get(url)
+          driver.get(url)
             
-            time.sleep(10)
+          time.sleep(10)
             
           driver.execute_script("window.scrollTo(0, 1000);")
           time.sleep(3)
