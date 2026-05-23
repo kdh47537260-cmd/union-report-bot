@@ -232,12 +232,13 @@ def fetch_menu_top_sales(acc):
             continue
 
         try:
-            store_name = clean_store_name(cells[1])
+            store_name = "유월의보리 양재점"
+            
             item_name = cells[4]
             qty = to_int(cells[5])
             sales = to_int(cells[6])
 
-            if not store_name or not item_name or sales <= 0:
+            if sales <= 0:
                 continue
 
             if store_name not in result:
