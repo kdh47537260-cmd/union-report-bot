@@ -227,8 +227,8 @@ def fetch_menu_top_sales(acc):
     soup = BeautifulSoup(res.text, "html.parser")
     rows = soup.select("table#tableList tbody tr")
 
-    for row in rows:
-        cells = [td.get_text(strip=True) for td in row.select("td")]
+for row in rows:
+    cells = [td.get_text(strip=True) for td in row.select("td")]
 
     if len(cells) < 7:
         continue
@@ -238,31 +238,31 @@ def fetch_menu_top_sales(acc):
 
     if "합계" in cells[0]:
         continue
-        
-        try:
-            store_name = clean_store_name(cells[1])
-            item_name = cells[4]
-            qty = to_int(cells[5])
-            sales = to_int(cells[6])
 
-            if sales <= 0:
-                continue
+    try:
+        store_name = clean_store_name(cells[1])
+        item_name = cells[4]
+        qty = to_int(cells[5])
+        sales = to_int(cells[6])
 
-            if store_name not in result:
-                result[store_name] = []
-
-            result[store_name].append({
-                "item": item_name,
-                "qty": qty,
-                "sales": sales,
-            })
-
-            print("메뉴 저장:", store_name, item_name, qty, sales)
-        
-        except Exception:
+        if sales <= 0:
             continue
 
-    return result
+        if store_name not in result:
+            result[store_name] = []
+
+        result[store_name].append({
+            "item": item_name,
+            "qty": qty,
+            "sales": sales,
+        })
+
+        print("메뉴 저장:", store_name, item_name, qty, sales)
+
+    except Exception:
+        continue
+
+return result
 
 def fetch_item2_top_sales(acc):
 
