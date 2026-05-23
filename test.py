@@ -143,8 +143,11 @@ try:
 
     time.sleep(8)
 
-    rows = driver.find_elements(By.CSS_SELECTOR, "tr")
-
+    rows = driver.find_elements(
+        By.CSS_SELECTOR,
+        "div.GMBodyMid table tbody tr.GMDataRow"
+    )
+    
     print("ROW_COUNT:", len(rows))
 
     for row in rows:
