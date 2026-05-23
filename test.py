@@ -29,21 +29,28 @@ def get_driver():
 def switch_to_frame_containing_element(driver, element_id):
     driver.switch_to.default_content()
 
+    # 현재 페이지 확인
     if driver.find_elements(By.ID, element_id):
         return True
 
+    # iframe 전체 탐색
     frames = driver.find_elements(By.TAG_NAME, "iframe")
 
-    for frame in frames:
+    print("FRAME_COUNT:", len(frames))
+
+    for idx, frame in enumerate(frames):
         try:
             driver.switch_to.default_content()
             driver.switch_to.frame(frame)
 
+            print(f"FRAME_CHECK: {idx}")
+
             if driver.find_elements(By.ID, element_id):
+                print(f"FOUND_FRAME: {idx}")
                 return True
 
-        except:
-            continue
+        except Exception as e:
+            print("FRAME_ERROR:", e)
 
     driver.switch_to.default_content()
 
@@ -110,17 +117,32 @@ def fetch_okpos_menu_sales():
         );
         """, product_menu)
 
-        time.sleep(8)
-
         print("상품별매출 클릭 완료")
 
-        # iframe 이동
-        driver.switch_to.default_content()
+        # iframe 생성 대기
+        found = False
 
-        found = switch_to_frame_containing_element(driver, "date1_1")
+        for i in range(20):
+            time.sleep(1)
+
+            driver.switch_to.default_content()
+
+            found = switch_to_frame_containing_element(driver, "date1_1")
+
+            print(f"FRAME TRY: {i+1}")
+
+            if found:
+                break
 
         if not found:
             print("프레임 못찾음")
+
+            print("현재 URL:", driver.current_url)
+            print("현재 TITLE:", driver.title)
+
+            iframes = driver.find_elements(By.TAG_NAME, "iframe")
+            print("IFRAME_COUNT:", len(iframes))
+
             return {}
 
         print("프레임 진입 성공")
@@ -166,11 +188,11 @@ def fetch_okpos_menu_sales():
                 continue
 
             try:
+                print("COLS:", cols)
+
                 item_name = cols[3]
                 qty = cols[5]
                 sales = cols[6]
-
-                print(cols)
 
                 if item_name in target_items:
                     result[item_name] = {
