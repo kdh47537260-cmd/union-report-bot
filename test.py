@@ -143,22 +143,15 @@ try:
 
     time.sleep(8)
 
-    rows = driver.find_elements(
-        By.CSS_SELECTOR,
-        "div.GMBodyMid table tbody tr.GMDataRow"
-    )
-
-    rows = [
-        row for row in rows
-        if "Grids[1]" in row.get_attribute("outerHTML")
-    ]
+    rows = driver.find_elements(By.CSS_SELECTOR, "tr.GMDataRow")
 
     print("ROW_COUNT:", len(rows))
 
     for row in rows:
-        print("ROW_HTML:", row.get_attribute("outerHTML")[:1500])
-    
         try:
+            if not row.find_elements(By.CSS_SELECTOR, "td.HideCol0C9"):
+                continue
+
             item_td = row.find_element(By.CSS_SELECTOR, "td.HideCol0C9")
             qty_td = row.find_element(By.CSS_SELECTOR, "td.HideCol0C13")
             sales_td = row.find_element(By.CSS_SELECTOR, "td.HideCol0C15")
