@@ -14,7 +14,7 @@ CHAT_IDS = [
     "8960843374",   # 경란님
 ]
 
-today = datetime.now()
+today = datetime.now() + timedelta(hours=9)
 yesterday = (today - timedelta(days=1)).strftime("%Y-%m-%d")
 month_start = today.replace(day=1).strftime("%Y-%m-%d")
 review_target_date = f"{(today - timedelta(days=1)).month}.{(today - timedelta(days=1)).day}"
