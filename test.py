@@ -433,9 +433,11 @@ def fetch_okpos():
                 if clean.isdigit():
                     number_values.append(v)
 
+            print("OKPOS_NUMBER_VALUES:", number_values)
+            
             return {
                 "total_sales": number_values[-13],
-                "receipt_count": number_values[-8],
+                "receipt_count": number_values[-10],
                 "table_price": number_values[-5],
             }
 
@@ -461,7 +463,7 @@ def fetch_okpos():
 
 def fetch_okpos_menu_top_sales():
     driver = get_driver()
-    result = {}
+    result = {"유월의보리 본점": []}
 
     try:
         driver.get("https://nicepay.okpos.co.kr/")
@@ -472,84 +474,54 @@ def fetch_okpos_menu_top_sales():
         driver.execute_script("doSubmit();")
         time.sleep(5)
 
-        cookies = driver.get_cookies()
-        session = requests.Session()
+        driver.get("https://nicepay.okpos.co.kr/sale/sale/prod015.jsp?PAGE_OPTION=DAY")
+        time.sleep(5)
 
-        for cookie in cookies:
-            session.cookies.set(cookie["name"], cookie["value"])
+        driver.switch_to.default_content()
+        switch_to_frame_containing_element(driver, "date1_1")
 
-        url = "https://nicepay.okpos.co.kr/sale/sale/ddd.htmlSheetAction"
+        driver.execute_script(f"""
+        document.getElementById('date1_1').removeAttribute('readonly');
+        document.getElementById('date1_1').value = '{yesterday}';
 
-        headers = {
-            "accept": "*/*",
-            "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "ibuseragent": "IBSheet7",
-            "origin": "https://nicepay.okpos.co.kr",
-            "referer": "https://nicepay.okpos.co.kr/sale/sale/prod015.jsp?PAGE_OPTION=DAY",
-            "x-requested-with": "XMLHttpRequest",
-            "user-agent": "Mozilla/5.0",
-        }
+        document.getElementById('date1_2').removeAttribute('readonly');
+        document.getElementById('date1_2').value = '{yesterday}';
+        """)
 
-        payload = {
-            "S_CONTROLLER": "sale.sale.prod015",
-            "S_METHOD": "search",
-            "SHEETSEQ": "1",
-            "S_SAVENAME": "SALE_DATE|LCLS_NM|MCLS_NM|SCLS_NM|PROD_CD|PROD_NM|SALE_QTY|TOT_SALE_AMT|TOT_DC_AMT|DCM_SALE_AMT",
-            "S_ORDERBY": "",
-            "ss_PAGE_OPTION": "DAY",
-            "date1_1": yesterday,
-            "date1_2": yesterday,
-            "date_period1": "366",
-            "ss_PROD_CD": "",
-            "ss_PROD_NM": "",
-            "ss_LCLS_CD": "",
-            "ss_MCLS_CD": "",
-            "ss_SCLS_CD": "",
-            "ss_SIZE_CLS_CD": "",
-            "ss_CLS_TEXT": "전체",
-            "ss_PAGE_SIZE": "100",
-            "ss_PAGE_NO1": "1",
-        }
+        time.sleep(1)
+        driver.execute_script("fnSearch();")
+        time.sleep(8)
 
-        res = session.post(url, headers=headers, data=payload)
-
-        print("OKPOS_MENU_STATUS:", res.status_code)
-        print("OKPOS_MENU_RAW:", repr(res.text[:3000]))
-
-        data = res.json()
-
-        store_name = "유월의보리 본점"
-        result[store_name] = []
-
-        print("OKPOS_MENU_KEYS:", data.keys() if isinstance(data, dict) else type(data))
-
-        rows = (
-            data.get("Data")
-            or data.get("data")
-            or data.get("rows")
-            or data.get("Rows")
-            or data.get("SearchData")
-            or []
-)
+        rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
         print("OKPOS_MENU_ROW_COUNT:", len(rows))
 
         for row in rows:
-            print("OKPOS_MENU_ROW:", row)
+            cells = row.find_elements(By.TAG_NAME, "td")
+            values = [cell.text.strip() for cell in cells if cell.text.strip()]
+            print("OKPOS_MENU_ROW:", values)
 
-            item_name = row.get("PROD_NM", "")
-            qty = to_int(str(row.get("SALE_QTY", "0")))
-            sales = to_int(str(row.get("DCM_SALE_AMT", "0")))
-
-            if not item_name or sales <= 0:
+            if len(values) < 8:
                 continue
 
-            result[store_name].append({
-                "item": item_name,
-                "qty": qty,
-                "sales": sales,
-            })
+            try:
+                item_name = values[5]
+                qty = to_int(values[6])
+                sales = to_int(values[9]) if len(values) > 9 else to_int(values[7])
 
-        print("OKPOS_MENU_RESULT_COUNT:", len(result[store_name]))
+                if not item_name or sales <= 0:
+                    continue
+
+                result["유월의보리 본점"].append({
+                    "item": item_name,
+                    "qty": qty,
+                    "sales": sales,
+                })
+
+            except Exception as e:
+                print("OKPOS_MENU_PARSE_ERROR:", values, e)
+                continue
+
+        print("OKPOS_MENU_RESULT_COUNT:", len(result["유월의보리 본점"]))
         return result
 
     except Exception as e:
