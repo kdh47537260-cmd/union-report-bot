@@ -24,35 +24,7 @@ def get_driver():
 
     return webdriver.Chrome(options=options)
 
-def switch_to_review_iframe(driver):
 
-    iframes = driver.find_elements(By.TAG_NAME, "iframe")
-
-    print("iframe 개수:", len(iframes))
-
-    for idx, iframe in enumerate(iframes):
-
-        try:
-            driver.switch_to.default_content()
-            driver.switch_to.frame(iframe)
-
-            time.sleep(2)
-
-            cards = driver.find_elements(By.XPATH, "//li[.//time]")
-
-            print(f"{idx}번 iframe 카드 수:", len(cards))
-
-            if len(cards) > 0:
-                print("리뷰 iframe 찾음")
-                return True
-
-        except Exception as e:
-            print("iframe 실패:", e)
-
-    driver.switch_to.default_content()
-
-    return False
-    
 def fetch_reviews():
     driver = get_driver()
     review_data = {}
@@ -64,100 +36,124 @@ def fetch_reviews():
             print("리뷰 대상 날짜:", review_target_date)
 
             driver.get(url)
-            time.sleep(7)
+            time.sleep(8)
 
-            found = switch_to_review_iframe(driver)
-
-            if not found:
-                print("리뷰 iframe 못찾음")
-                continue
-    
             print("현재 URL:", driver.current_url)
             print("페이지 제목:", driver.title)
+            print("BODY 일부:", driver.find_element(By.TAG_NAME, "body").text[:500])
 
             try:
-                latest_buttons = driver.find_elements(By.XPATH, "//*[contains(text(), '최신순')]")
-                print("최신순 버튼 수:", len(latest_buttons))
+                driver.find_element(
+                    By.XPATH,
+                    "//a[contains(text(), '최신순')]"
+                ).click()
 
-                for btn in latest_buttons:
-                    try:
-                        if btn.is_displayed():
-                            driver.execute_script("arguments[0].click();", btn)
-                            print("최신순 클릭 완료")
-                            time.sleep(4)
-                            break
-                    except Exception:
-                        pass
+                print("최신순 클릭 완료")
+                time.sleep(3)
 
             except Exception as e:
                 print("최신순 클릭 실패:", e)
 
-            for i in range(10):
+            last_count = 0
+            same_count = 0
+
+            while True:
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                 time.sleep(2)
 
+                more_buttons = driver.find_elements(By.CSS_SELECTOR, "span.TeItc")
+                print("더보기 후보 수:", len(more_buttons))
+
+                for btn in more_buttons:
+                    try:
+                        if "펼쳐서 더보기" in btn.text:
+                            driver.execute_script("arguments[0].click();", btn)
+                            print("펼쳐서 더보기 클릭")
+                            time.sleep(1)
+                    except Exception:
+                        pass
+
                 cards = driver.find_elements(By.XPATH, "//li[.//time]")
-                print(f"스크롤 {i + 1}회 / 카드 수:", len(cards))
+                print("현재 카드 수:", len(cards))
 
-                try:
-                    more_buttons = driver.find_elements(
-                        By.XPATH,
-                        "//*[contains(text(), '펼쳐서 더보기') or contains(text(), '더보기')]"
-                    )
+                current_count = 0
 
-                    print("더보기 버튼 수:", len(more_buttons))
+                for card in cards:
+                    try:
+                        date_text = card.find_element(By.TAG_NAME, "time").text.strip()
+                        print("DATE_TEXT:", date_text)
 
-                    for btn in more_buttons:
-                        try:
-                            if btn.is_displayed():
-                                driver.execute_script("arguments[0].click();", btn)
-                                time.sleep(0.5)
-                        except Exception:
-                            pass
+                        if review_target_date in date_text:
+                            current_count += 1
 
-                except Exception:
-                    pass
+                    except Exception:
+                        pass
+
+                if current_count == last_count:
+                    same_count += 1
+                else:
+                    same_count = 0
+                    last_count = current_count
+
+                if same_count >= 3:
+                    break
+
+                if len(cards) > 250:
+                    break
 
             cards = driver.find_elements(By.XPATH, "//li[.//time]")
-            print("최종 카드 수:", len(cards))
-
             review_texts = []
+
+            print("최종 카드 수:", len(cards))
 
             for card in cards:
                 try:
                     date_text = card.find_element(By.TAG_NAME, "time").text.strip()
-                    print("DATE_TEXT:", date_text)
 
                     if review_target_date not in date_text:
                         continue
 
-                    text = card.text.strip()
-                    lines = [line.strip() for line in text.split("\n") if line.strip()]
+                    review_candidates = card.find_elements(
+                        By.CSS_SELECTOR,
+                        "a[data-pui-click-code='rvshowless'], a[data-pui-click-code='rvshowmore']"
+                    )
 
-                    print("CARD_LINES:", lines[:8])
+                    print("본문 후보 수:", len(review_candidates))
 
-                    for line in lines:
-                        if len(line) < 10:
+                    for review_el in review_candidates:
+                        review_text = review_el.get_attribute("innerText").strip()
+                        review_text = review_text.replace("\n", " ").strip()
+
+                        if not review_text:
                             continue
-                        if review_target_date in line:
+                        if len(review_text) < 10:
                             continue
-                        if "리뷰" in line and "사진" in line:
+                        if "리뷰" in review_text and "사진" in review_text:
                             continue
-                        if "팔로우" in line:
+                        if "팔로우" in review_text:
                             continue
-                        if "개의 리뷰" in line:
+                        if "개의 리뷰가 더 있습니다" in review_text:
                             continue
-                        if "반응 남기기" in line:
+                        if "반응 남기기" in review_text:
                             continue
-                        if "방문예약" in line:
+                        if "방문예약" in review_text:
                             continue
-                        if "대기 시간" in line:
+                        if "대기 시간" in review_text:
                             continue
-                        if line.startswith("+"):
+                        if "친목" in review_text:
+                            continue
+                        if "데이트" in review_text:
+                            continue
+                        if "연인・배우자" in review_text:
+                            continue
+                        if "지인・동료" in review_text:
+                            continue
+                        if review_text.startswith("+"):
                             continue
 
-                        print("REVIEW:", line)
-                        review_texts.append(line)
+                        print("REVIEW:", review_text)
+
+                        review_texts.append(review_text)
                         break
 
                 except Exception as e:
@@ -168,9 +164,13 @@ def fetch_reviews():
 
         return review_data
 
+    except Exception as e:
+        print("리뷰 조회 실패:", e)
+        return review_data
+
     finally:
         driver.quit()
-
+        
 review_data = fetch_reviews()
 
 print("\n\n최종 결과")
