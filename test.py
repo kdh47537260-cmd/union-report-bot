@@ -455,7 +455,7 @@ def fetch_okpos():
         print("OKPOS 조회 실패:", e)
         return {}
 
-        finally:
+    finally:
         driver.quit()
 
 
