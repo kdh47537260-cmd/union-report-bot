@@ -69,8 +69,8 @@ def fetch_reviews():
             found = switch_to_review_iframe(driver)
 
             if not found:
-            print("리뷰 iframe 못찾음")
-            continue
+                print("리뷰 iframe 못찾음")
+                continue
     
             print("현재 URL:", driver.current_url)
             print("페이지 제목:", driver.title)
