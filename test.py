@@ -49,14 +49,21 @@ def fetch_okpos_menu_sales_api():
     }
 
     res = requests.post(url, headers=headers, data=payload, timeout=20)
+
     print("STATUS:", res.status_code)
-    print("TEXT:", res.text[:500])
+    print("TEXT_LEN:", len(res.text))
+    print("TEXT_HEAD:", repr(res.text[:1000]))
 
     data = res.json()
+
+    print("DATA_KEYS:", data.keys())
+    print("DATA_COUNT:", len(data.get("Data", [])))
 
     result = {}
 
     for row in data.get("Data", []):
+        print(row.get("PROD_NM"), row.get("SALE_QTY"), row.get("TOT_SALE_AMT"))
+
         name = row.get("PROD_NM")
 
         if name in TARGET_ITEMS:
