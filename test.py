@@ -211,11 +211,14 @@ def fetch_menu_top_sales(acc):
                 continue
 
             try:
-                store_name = clean_store_name(values[0])
-                item_name = values[1]
 
-                qty = to_int(values[2])
-                sales = to_int(values[3])
+                if not values[0].isdigit():
+                    continue
+                store_name = clean_store_name(values[1])
+                item_name = values[4]
+
+                qty = to_int(values[5])
+                sales = to_int(values[6])
 
                 if sales <= 0:
                     continue
