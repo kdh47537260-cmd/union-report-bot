@@ -499,6 +499,7 @@ def fetch_okpos_menu_top_sales():
         }
 
         payload = {
+            "1815c899-ee68-4ba3-a475-06ec62f4e576": "5aa1cd30-a9a7-4124-939d-7f28775e405a",
             "S_CONTROLLER": "sale.sale.prod015",
             "S_METHOD": "search",
             "SHEETSEQ": "1",
@@ -675,7 +676,10 @@ def is_target_menu(item_name):
         .lower()
     )
 
-    return "한상보쌈" in name and "칼국수" in name
+    return (
+        ("한상보쌈" in name and "칼국수" in name)
+        or ("접시보쌈" in name)
+    )
     
 review_data = fetch_reviews()
 
@@ -696,7 +700,7 @@ for store_name in store_order:
             review_text += f"\n{idx}. {review}"
 
         report_lines.append(f"""
-    [{store_name}]
+[{store_name}]
 조회 실패 또는 데이터 없음
 {review_text}
 """)
@@ -712,7 +716,7 @@ for store_name in store_order:
     for idx, review in enumerate(reviews, start=1):
         review_text += f"\n{idx}. {review}"
 
-    target_menu_text = "한상보쌈&칼국수: 데이터 없음"
+    target_menu_text = "보쌈세트 판매량: 데이터 없음"
     target_items = []
 
     if store_name in menu_top_data:
@@ -724,9 +728,9 @@ for store_name in store_order:
     if target_items:
         target_qty = sum(item["qty"] for item in target_items)
         target_sales = sum(item["sales"] for item in target_items)
-        target_menu_text = f"한상보쌈&칼국수: {target_qty}개 / {fmt(target_sales)}원"
+        target_menu_text = f"보쌈세트 판매량: {target_qty}개 / {fmt(target_sales)}원"
 
-report_lines.append(f"""
+    report_lines.append(f"""
 [{store_name}]
 총매출: {data['total_sales']}원
 영수건수(회전수): {data['receipt_count']}건 ({rotation}회전)
