@@ -272,6 +272,8 @@ def fetch_menu_top_sales(acc):
                 result[store_name],
                 key=lambda x: x["qty"],
                 reverse=True
+            )
+            
         return result
 
 def fetch_item2_top_sales(acc):
