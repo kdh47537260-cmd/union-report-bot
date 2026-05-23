@@ -88,19 +88,14 @@ try:
 
         print("ROW:", values)
 
-        if len(values) < 10:
+        if len(values) < 2:
             continue
 
         try:
-            item_name = values[8]
-            qty = to_int(values[12])
-            sales = to_int(values[16])
+            joined = " ".join(values)
 
-            if "한상보쌈" in item_name:
-                print("한상보쌈:", qty, sales)
-
-            if "접시보쌈" in item_name:
-                print("접시보쌈:", qty, sales)
+            if "한상보쌈" in joined or "접시보쌈" in joined:
+                print("TARGET_ROW:", values)
 
         except Exception as e:
             print("PARSE_ERROR:", e)
