@@ -232,10 +232,7 @@ def fetch_menu_top_sales(acc):
             continue
 
         try:
-            store_cell = row.select_one("td:nth-of-type(2)")
-            store_name_raw = store_cell.get_text(" ", strip=True) if store_cell else cells[1]
-            store_name = clean_store_name(store_name_raw)
-            
+            store_name = clean_store_name(cells[1])
             item_name = cells[4]
             qty = to_int(cells[5])
             sales = to_int(cells[6])
@@ -253,7 +250,10 @@ def fetch_menu_top_sales(acc):
                 "sales": sales,
             })
 
-        except Exception:
+            print("MENU_SAVE:", store_name, item_name, qty, sales)
+
+        except Exception as e:
+            print("MENU_PARSE_ERROR:", cells, e)
             continue
 
     for store_name in result:
