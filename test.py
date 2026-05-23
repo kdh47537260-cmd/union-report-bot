@@ -464,7 +464,6 @@ def fetch_okpos():
     finally:
         driver.quit()
 
-
 def fetch_reviews():
     driver = get_driver()
     review_data = {}
@@ -493,7 +492,7 @@ def fetch_reviews():
                 time.sleep(2)
 
                 more_buttons = driver.find_elements(By.CSS_SELECTOR, "span.TeItc")
-
+                
                 for btn in more_buttons:
                     try:
                         if "펼쳐서 더보기" in btn.text:
