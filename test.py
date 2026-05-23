@@ -4,15 +4,13 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.service import Service
 from datetime import datetime, timedelta
 import requests
-import time
+import timef
 
 BOT_TOKEN = "8886052539:AAGrUs30DNxPsyRtL7RlDHOdeQGSDwV7cUk"
 
 CHAT_IDS = [
     "1490548765",   # 도현
-    "8650028323",   # 대표님
-    "8960843374",   # 경란님
-]
+]f
 
 today = datetime.now() + timedelta(hours=9)
 yesterday = (today - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -546,7 +544,8 @@ def fetch_reviews():
                     )
 
                     for review_el in review_candidates:
-                        review_text = review_el.text.strip()
+                        review_text = review_el.get_attribute("innerText").strip()
+                        review_text = review_text.replace("\n", " ").strip()
 
                         if not review_text:
                             continue
@@ -574,6 +573,8 @@ def fetch_reviews():
                             continue
                         if review_text.startswith("+"):
                             continue
+                        
+                        print("REVIEW:", review_text)
 
                         review_texts.append(review_text)
                         break
