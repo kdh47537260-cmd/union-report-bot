@@ -171,157 +171,6 @@ def fetch_unionpos_account(acc):
         driver.quit()
 
 
-def fetch_menu_top_sales(acc):
-
-    driver = get_driver()
-    result = {}
-
-    try:
-        driver.get("https://asp2.unionpos.co.kr")
-        time.sleep(2)
-
-        driver.find_element(By.ID, "userId").send_keys(acc["id"])
-        driver.find_element(By.ID, "password").send_keys(acc["pw"])
-        driver.find_element(By.ID, "btnLogin").click()
-
-        time.sleep(3)
-
-        url = (
-            "https://asp2.unionpos.co.kr/v2/sales/product/storeItem"
-            f"?pageNo=1"
-            f"&rangeDate={yesterday}+~+{yesterday}"
-            f"&startDate={yesterday}"
-            f"&endDate={yesterday}"
-            f"&searchType=ItemName"
-            f"&searchKeyword="
-            f"&pageSize=100"
-        )
-
-        driver.get(url)
-
-        time.sleep(5)
-
-        rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
-
-        for row in rows:
-
-            cells = row.find_elements(By.TAG_NAME, "td")
-            values = [cell.text.strip() for cell in cells]
-            print("MENU_ROW:", values)
-            
-            if len(values) < 4:
-                continue
-
-            try:
-
-                if not values[0].isdigit():
-                    continue
-                store_name = clean_store_name(values[1])
-                item_name = values[4]
-
-                qty = to_int(values[5])
-                sales = to_int(values[6])
-
-                if sales <= 0:
-                    continue
-
-                if store_name not in result:
-                    result[store_name] = []
-
-                result[store_name].append({
-                    "item": item_name,
-                    "qty": qty,
-                    "sales": sales,
-                })
-
-            except Exception:
-                continue
-
-        return result
-
-    except Exception as e:
-        print("메뉴 TOP 조회 실패:", e)
-        return {}
-
-    finally:
-        driver.quit()
-
-def fetch_item2_top_sales(acc):
-
-    driver = get_driver()
-    result = {}
-
-    try:
-        driver.get("https://asp2.unionpos.co.kr")
-        time.sleep(2)
-
-        driver.find_element(By.ID, "userId").send_keys(acc["id"])
-        driver.find_element(By.ID, "password").send_keys(acc["pw"])
-        driver.find_element(By.ID, "btnLogin").click()
-        time.sleep(3)
-
-        url = (
-            "https://asp2.unionpos.co.kr/v2/sales/product/item2"
-            f"?pageNo=1"
-            f"&SortMethod="
-            f"&SortType="
-            f"&SortOrder="
-            f"&rangeDate={yesterday}+~+{yesterday}"
-            f"&startDate={yesterday}"
-            f"&endDate={yesterday}"
-            f"&searchType=ItemName"
-            f"&searchKeyword="
-            f"&codeSearch=CodeSearchName"
-            f"&pageSize=100"
-        )
-
-        driver.get(url)
-        time.sleep(5)
-
-        store_name = "유월의보리 성남신흥점"
-        result[store_name] = []
-
-        rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
-
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            values = [cell.text.strip() for cell in cells]
-            print("ITEM2_ROW:", values)
-            
-            if len(values) < 6:
-                continue
-
-            try:
-                # item2 단독매장 기준: 번호 / 상품명 / 수량 / 매출 ... 형태
-                if not values[0].isdigit():
-                    continue
-
-                item_name = values[3]
-                qty = to_int(values[4])
-                sales = to_int(values[5])
-
-                if not item_name or sales <= 0:
-                    continue
-
-                result[store_name].append({
-                    "item": item_name,
-                    "qty": qty,
-                    "sales": sales,
-                })
-
-            except Exception:
-                continue
-
-        return result
-
-    except Exception as e:
-        print("신흥점 item2 메뉴 TOP 조회 실패:", e)
-        return {}
-
-    finally:
-        driver.quit()
-        
-        
 def switch_to_frame_containing_element(driver, element_id):
     try:
         exists = driver.execute_script(
@@ -553,55 +402,6 @@ all_store_data.update(fetch_okpos())
 for acc in union_accounts:
     all_store_data.update(fetch_unionpos_account(acc))
 
-menu_top_data = {}
-
-for acc in union_accounts:
-
-    if acc["id"] == "sz77971":
-        menu_data = fetch_menu_top_sales(acc)
-
-    elif acc["id"] == "sz83661":
-        menu_data = fetch_item2_top_sales(acc)
-
-    else:
-        menu_data = {}
-
-    for store_name, items in menu_data.items():
-
-        if store_name not in menu_top_data:
-            menu_top_data[store_name] = []
-
-        menu_top_data[store_name].extend(items)
-        
-def is_hansang_menu(item_name):
-    name = (
-        item_name
-        .replace(" ", "")
-        .replace("&", "")
-        .replace("+", "")
-        .replace("SET", "")
-        .replace("set", "")
-        .replace("세트", "")
-        .lower()
-    )
-
-    return "한상보쌈" in name and "칼국수" in name
-
-
-def is_plate_menu(item_name):
-    name = (
-        item_name
-        .replace(" ", "")
-        .replace("&", "")
-        .replace("+", "")
-        .replace("SET", "")
-        .replace("set", "")
-        .replace("세트", "")
-        .lower()
-    )
-
-    return "접시보쌈" in name and "무김치" in name
-    
 review_data = fetch_reviews()
 
 report_lines = [
@@ -637,41 +437,12 @@ for store_name in store_order:
     for idx, review in enumerate(reviews, start=1):
         review_text += f"\n\n{idx}. {review}"
 
-    hansang_text = "한상보쌈&칼국수: 데이터 없음"
-    plate_text = "접시보쌈&무김치: 데이터 없음"
-
-    if store_name in menu_top_data:
-
-        hansang_items = [
-            item for item in menu_top_data[store_name]
-            if is_hansang_menu(item["item"])
-        ]
-
-        if hansang_items:
-            qty = sum(item["qty"] for item in hansang_items)
-            sales = sum(item["sales"] for item in hansang_items)
-
-            hansang_text = f"한상보쌈&칼국수: {qty}개 / {fmt(sales)}원"
-
-        plate_items = [
-            item for item in menu_top_data[store_name]
-            if is_plate_menu(item["item"])
-        ]
-
-        if plate_items:
-            qty = sum(item["qty"] for item in plate_items)
-            sales = sum(item["sales"] for item in plate_items)
-
-            plate_text = f"접시보쌈&무김치: {qty}개 / {fmt(sales)}원"
-
     report_lines.append(f"""
 [{store_name}]
 총매출: {data['total_sales']}원
 영수건수(회전수): {data['receipt_count']}건 ({rotation}회전)
 테이블단가: {data['table_price']}원
 월누적매출: {data['month_sales']}원
-{hansang_text}
-{plate_text}
 
 {review_text}
 """)
