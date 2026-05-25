@@ -289,6 +289,9 @@ def fetch_okpos():
             }
 
         day_data = search_period(yesterday, yesterday)
+        
+        time.sleep(6)
+        
         month_data = search_period(month_start, yesterday)
 
         return {
