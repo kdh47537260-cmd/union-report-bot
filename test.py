@@ -271,21 +271,14 @@ def fetch_okpos():
             driver.execute_script("fnSearch();")
             time.sleep(8)
 
-            cells = driver.find_elements(By.CSS_SELECTOR, "td")
-            values = [c.text.strip() for c in cells if c.text.strip()]
-
-            number_values = []
-
-            for v in values:
-                clean = v.replace(",", "")
-
-                if clean.isdigit():
-                    number_values.append(v)
+            total_sales = driver.find_elements(By.CSS_SELECTOR, "td.HideCol0C5")[-1].text.strip()
+            receipt_count = driver.find_elements(By.CSS_SELECTOR, "td.HideCol0C10")[-1].text.strip()
+            table_price = driver.find_elements(By.CSS_SELECTOR, "td.HideCol0C11")[-1].text.strip()
 
             return {
-                "total_sales": number_values[-13],
-                "receipt_count": number_values[-8],
-                "table_price": number_values[-5],
+                "total_sales": total_sales,
+                "receipt_count": receipt_count,
+                "table_price": table_price,
             }
 
         day_data = search_period(yesterday, yesterday)
