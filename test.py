@@ -8,8 +8,6 @@ BOT_TOKEN = "8886052539:AAGrUs30DNxPsyRtL7RlDHOdeQGSDwV7cUk"
 
 CHAT_IDS = [
     "1490548765",   # 도현
-    "8650028323",   # 대표님
-    "8960843374",   # 경란님
 ]
 
 today = datetime.now() + timedelta(hours=9)
@@ -273,23 +271,28 @@ def fetch_okpos():
             driver.execute_script("fnSearch();")
             time.sleep(8)
 
-            cells = driver.find_elements(By.CSS_SELECTOR, "td")
-            values = [c.text.strip() for c in cells if c.text.strip()]
+            rows = driver.find_elements(By.CSS_SELECTOR, "tr")
 
-            number_values = []
+            for row in rows:
+                cells = row.find_elements(By.TAG_NAME, "td")
+                values = [c.text.strip() for c in cells]
 
-            for v in values:
-                clean = v.replace(",", "")
+                if not values:
+                    continue
 
-                if clean.isdigit():
-                    number_values.append(v)
+                if values[0] == "합계":
+                    return {
+                        "total_sales": values[2],
+                        "receipt_count": values[8],
+                        "table_price": values[9],
+                    }
 
             return {
-                "total_sales": number_values[-13],
-                "receipt_count": number_values[-8],
-                "table_price": number_values[-5],
+                "total_sales": "0",
+                "receipt_count": "0",
+                "table_price": "0",
             }
-
+            
         day_data = search_period(yesterday, yesterday)
         month_data = search_period(month_start, yesterday)
 
