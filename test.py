@@ -1,6 +1,7 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from datetime import datetime, timedelta
+import calendar
 import requests
 import time
 
@@ -13,6 +14,8 @@ CHAT_IDS = [
 today = datetime.now() + timedelta(hours=9)
 yesterday = (today - timedelta(days=1)).strftime("%Y-%m-%d")
 month_start = today.replace(day=1).strftime("%Y-%m-%d")
+days_elapsed = (today - timedelta(days=1)).day
+days_in_month = calendar.monthrange(today.year, today.month)[1]
 review_target_date = f"{(today - timedelta(days=1)).month}.{(today - timedelta(days=1)).day}"
 
 union_accounts = [
@@ -431,16 +434,26 @@ for store_name in store_order:
     for idx, review in enumerate(reviews, start=1):
         review_text += f"\n\n{idx}. {review}"
 
+    month_sales_int = to_int(data["month_sales"])
+
+    avg_daily_sales_int = round(month_sales_int / days_elapsed)
+    expected_month_sales_int = avg_daily_sales_int * days_in_month
+
+    avg_daily_sales = fmt(avg_daily_sales_int)
+    expected_month_sales = fmt(expected_month_sales_int)
+
     report_lines.append(f"""
 [{store_name}]
 총매출: {data['total_sales']}원
 영수건수(회전수): {data['receipt_count']}건 ({rotation}회전)
 테이블단가: {data['table_price']}원
 월누적매출: {data['month_sales']}원
+일평균매출: {avg_daily_sales}원
+월예상매출: {expected_month_sales}원
 
 {review_text}
 """)
-
+    
 report = "\n".join(report_lines)
 
 print(report)
