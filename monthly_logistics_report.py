@@ -26,6 +26,14 @@ def run_monthly_logistics_report():
     erp.columns = erp.columns.str.strip()
     master.columns = master.columns.str.strip()
 
+    erp = erp[
+        erp["품목코드"].notna()
+    ]
+
+    erp["거래처명"] = erp["거래처명"].replace({
+        "유월의 보리(신내점)": "유월의 보리 신내점"
+    })
+
     print("MASTER 컬럼:")
     print(master.columns.tolist())
 
