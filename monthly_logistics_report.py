@@ -57,6 +57,8 @@ def run_monthly_logistics_report():
 
     erp["수량"] = erp["수량"].apply(to_number)
     erp["공급가액"] = erp["공급가액"].apply(to_number)
+    erp["부가세"] = erp["부가세"].apply(to_number)
+    erp["합계"] = erp["합계"].apply(to_number)
 
     erp["제조원가_단가"] = erp["품목코드"].map(cost_map)
     missing = erp[erp["제조원가_단가"].isna()][["품목코드", "품목명(규격)"]].drop_duplicates()
@@ -67,17 +69,22 @@ def run_monthly_logistics_report():
     store_report = (
         erp.groupby("거래처명")
         .agg(
-            본사공급액=("공급가액", "sum"),
-            총제조원가=("총제조원가", "sum"),
-            물류이익=("물류이익", "sum"),
+            공급가액=("공급가액","sum"),
+            부가세=("부가세","sum"),
+            청구합계=("합계","sum"),
+            총제조원가=("총제조원가","sum"),
+            물류이익=("물류이익","sum"),
         )
         .reset_index()
     )
-
-    store_report["물류이익률"] = store_report["물류이익"] / store_report["본사공급액"].replace(0, pd.NA)
-
+    
+    store_report["물류이익률"] = (
+    store_report["물류이익"] /
+    store_report["공급가액"].replace(0, pd.NA)
+)
+    
     sku_report = (
-        erp.groupby(["거래처명", "품목코드", "품목명(규격)"])
+        erp.groupby(["품목코드", "품목명(규격)"])
         .agg(
             수량=("수량", "sum"),
             공급가액=("공급가액", "sum"),
@@ -91,7 +98,9 @@ def run_monthly_logistics_report():
 
     lines = []
 
-    total_supply = store_report["본사공급액"].sum()
+    total_supply = store_report["공급가액"].sum()
+    total_vat = store_report["부가세"].sum()
+    total_invoice = store_report["청구합계"].sum()
     total_cost = store_report["총제조원가"].sum()
     total_profit = store_report["물류이익"].sum()
     total_margin = total_profit / total_supply if total_supply != 0 else 0
@@ -99,7 +108,9 @@ def run_monthly_logistics_report():
     lines.append(f"""
 [월말 물류이익 리포트]
 
-전체 본사공급액: {total_supply:,.0f}원
+전체 공급가액: {total_supply:,.0f}원
+전체 부가세: {total_vat:,.0f}원
+전체 청구합계: {total_invoice:,.0f}원
 전체 제조원가: {total_cost:,.0f}원
 전체 물류이익: {total_profit:,.0f}원
 전체 물류이익률: {total_margin:.1%}
@@ -110,75 +121,36 @@ def run_monthly_logistics_report():
         lines.append(f"""
 ━━━━━━━━━━
 [{row['거래처명']}]
-본사공급액: {row['본사공급액']:,.0f}원
+
+공급가액: {row['공급가액']:,.0f}원
+부가세: {row['부가세']:,.0f}원
+청구합계: {row['청구합계']:,.0f}원
+
 총제조원가: {row['총제조원가']:,.0f}원
 물류이익: {row['물류이익']:,.0f}원
 물류이익률: {row['물류이익률']:.1%}
-
-SKU 사용량 전체
 """)
-
-        store_sku = sku_report[
-            sku_report["거래처명"] == row["거래처명"]
-        ].copy()
-
-        store_sku["공급비중"] = (
-            store_sku["공급가액"] /
-            row["본사공급액"]
-        )
-
-        store_sku = store_sku.sort_values(
-            "공급비중",
-            ascending=False
-        )
-        
-        for _, sku in store_sku.iterrows():
-
-            supply_ratio = (
-                sku["공급가액"] / row["본사공급액"]
-                if row["본사공급액"] != 0
-                else 0
-            )
-
-            profit_ratio = (
-                sku["물류이익"] / row["물류이익"]
-                if row["물류이익"] != 0
-                else 0
-            )
-
-            item_name = (
-                sku['품목명(규격)']
-                .replace("유월의보리 ", "")
-                .replace("유월의보리", "")
-            )
-
-            lines.append(
-                f"- {item_name} / "
-                f"{sku['수량']:,.0f}개 / "
-                f"공급비중 {supply_ratio:.1%} / "
-                f"이익 {sku['물류이익']:,.0f}원 ({profit_ratio:.1%})"
-            )
 
     if len(missing) > 0:
         lines.append("\n⚠ 원가 미등록 SKU")
         for _, row in missing.iterrows():
             lines.append(f"- {row['품목코드']} / {row['품목명(규격)']}")
 
-    # 엑셀 저장용 컬럼 추가
     sku_report["공급비중"] = (
         sku_report["공급가액"] /
-        sku_report["거래처명"].map(
-            store_report.set_index("거래처명")["본사공급액"]
-        )
+        (total_supply if total_supply != 0 else 1)
     )
 
     sku_report["이익비중"] = (
         sku_report["물류이익"] /
-        sku_report["거래처명"].map(
-            store_report.set_index("거래처명")["물류이익"]
-        ).replace(0, pd.NA)
+        (total_profit if total_profit != 0 else 1)
     )
-
+    
+    sku_report = sku_report.sort_values(
+    "공급가액",
+    ascending=False
+)
+    
     with pd.ExcelWriter(
         "월말_물류리포트.xlsx",
         engine="openpyxl"
@@ -187,13 +159,17 @@ SKU 사용량 전체
         # 1) SUMMARY 시트
         summary_df = pd.DataFrame({
             "구분": [
-                "전체 본사공급액",
+                "전체 공급가액",
+                "전체 부가세",
+                "전체 청구합계",
                 "전체 제조원가",
                 "전체 물류이익",
                 "전체 물류이익률",
             ],
             "값": [
                 total_supply,
+                total_vat,
+                total_invoice,
                 total_cost,
                 total_profit,
                 total_margin,
@@ -280,15 +256,17 @@ SKU 사용량 전체
             cell.font = white_bold
             cell.alignment = Alignment(horizontal="center")
 
-        for row in ws.iter_rows(min_row=4, max_row=7):
+        for row in ws.iter_rows(min_row=4, max_row=9):
             for cell in row:
                 cell.border = thin_border
                 cell.alignment = Alignment(horizontal="center")
 
-        ws["B4"].number_format = '#,##0"원"'
-        ws["B5"].number_format = '#,##0"원"'
-        ws["B6"].number_format = '#,##0"원"'
-        ws["B7"].number_format = "0.0%"
+        ws["B4"].number_format='#,##0"원"'
+        ws["B5"].number_format='#,##0"원"'
+        ws["B6"].number_format='#,##0"원"'
+        ws["B7"].number_format='#,##0"원"'
+        ws["B8"].number_format='#,##0"원"'
+        ws["B9"].number_format='0.0%'
 
         ws.column_dimensions["A"].width = 22
         ws.column_dimensions["B"].width = 22
@@ -298,7 +276,7 @@ SKU 사용량 전체
         style_sheet(ws)
 
         for row in range(2, ws.max_row + 1):
-            margin_cell = ws.cell(row=row, column=5)
+            margin_cell = ws.cell(row=row, column=7)
             margin_cell.number_format = "0.0%"
 
             if margin_cell.value is not None and margin_cell.value >= 0.4:
@@ -310,13 +288,19 @@ SKU 사용량 전체
         style_sheet(ws)
 
         for row in range(2, ws.max_row + 1):
-            profit_cell = ws.cell(row=row, column=7)
-            supply_ratio_cell = ws.cell(row=row, column=9)
-            profit_ratio_cell = ws.cell(row=row, column=10)
+            profit_cell = ws.cell(row=row, column=6)
+            margin_cell = ws.cell(row=row, column=7)
+            supply_ratio_cell = ws.cell(row=row, column=8)
+            profit_ratio_cell = ws.cell(row=row, column=9)
 
+            margin_cell.number_format = "0.0%"
             supply_ratio_cell.number_format = "0.0%"
             profit_ratio_cell.number_format = "0.0%"
-
+            ws.cell(row=row, column=3).number_format = '#,##0"개"'
+            ws.cell(row=row, column=4).number_format = '#,##0"원"'
+            ws.cell(row=row, column=5).number_format = '#,##0"원"'
+            ws.cell(row=row, column=6).number_format = '#,##0"원"'
+            
             if profit_cell.value is not None and profit_cell.value < 0:
                 profit_cell.font = red_font
 
@@ -367,7 +351,10 @@ if __name__ == "__main__":
 
             else:
 
-                current += "\n" + section
+                if current:
+                    current += "\n" + section
+                else:
+                    current = section
 
         if current:
             chunks.append(current)
