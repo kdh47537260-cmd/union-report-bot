@@ -120,11 +120,23 @@ SKU 사용량 전체
 
         for _, sku in store_sku.iterrows():
 
+            supply_ratio = (
+                sku["공급가액"] / row["본사공급액"]
+                if row["본사공급액"] != 0
+                else 0
+            )
+
+            profit_ratio = (
+                sku["물류이익"] / row["물류이익"]
+                if row["물류이익"] != 0
+                else 0
+            )
+
             lines.append(
                 f"- {sku['품목명(규격)']} / "
                 f"{sku['수량']:,.0f}개 / "
-                f"공급 {sku['공급가액']:,.0f}원 / "
-                f"이익 {sku['물류이익']:,.0f}원"
+                f"공급비중 {supply_ratio:.1%} / "
+                f"이익 {sku['물류이익']:,.0f}원 ({profit_ratio:.1%})"
             )
 
     if len(missing) > 0:
