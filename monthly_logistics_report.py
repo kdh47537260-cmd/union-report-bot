@@ -80,19 +80,47 @@ def run_monthly_logistics_report():
         .reset_index()
     )
 
-    sku_report["물류이익률"] = sku_report["물류이익"] / sku_report["공급가액"]
+    sku_report["물류이익률"] = sku_report["물류이익"] / sku_report["공급가액"].replace(0, pd.NA)
 
     lines = []
-    lines.append("[월말 물류이익 테스트 리포트]\n")
+
+    total_supply = store_report["본사공급액"].sum()
+    total_cost = store_report["총제조원가"].sum()
+    total_profit = store_report["물류이익"].sum()
+    total_margin = total_profit / total_supply if total_supply != 0 else 0
+
+lines.append(f"""
+[월말 물류이익 리포트]
+
+전체 본사공급액: {total_supply:,.0f}원
+전체 제조원가: {total_cost:,.0f}원
+전체 물류이익: {total_profit:,.0f}원
+전체 물류이익률: {total_margin:.1%}
+""")
 
     for _, row in store_report.iterrows():
-        lines.append(f"""
+    lines.append(f"""
+━━━━━━━━━━
 [{row['거래처명']}]
 본사공급액: {row['본사공급액']:,.0f}원
 총제조원가: {row['총제조원가']:,.0f}원
 물류이익: {row['물류이익']:,.0f}원
 물류이익률: {row['물류이익률']:.1%}
+
+SKU 사용량 전체
 """)
+
+    store_sku = sku_report[
+        sku_report["거래처명"] == row["거래처명"]
+    ].sort_values(
+        "수량",
+        ascending=False
+    )
+
+    for _, sku in store_sku.iterrows():
+        lines.append(
+            f"- {sku['품목명(규격)']} / {sku['수량']:,.0f}개 / 공급 {sku['공급가액']:,.0f}원 / 이익 {sku['물류이익']:,.0f}원"
+        )
 
     if len(missing) > 0:
         lines.append("\n⚠ 원가 미등록 SKU")
