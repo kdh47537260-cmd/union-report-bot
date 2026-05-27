@@ -100,7 +100,7 @@ def run_monthly_logistics_report():
 
     for _, row in store_report.iterrows():
 
-    lines.append(f"""
+        lines.append(f"""
 ━━━━━━━━━━
 [{row['거래처명']}]
 본사공급액: {row['본사공급액']:,.0f}원
