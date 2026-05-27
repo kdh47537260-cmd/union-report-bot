@@ -1,8 +1,12 @@
+import os
+import requests
 import pandas as pd
 
 MASTER_FILE = "유월의보리_product_master.xlsx"
 ERP_FILE = "erp_sales.xlsx"
 
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 def to_number(value):
     if pd.isna(value):
