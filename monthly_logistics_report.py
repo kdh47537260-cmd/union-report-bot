@@ -164,8 +164,39 @@ SKU 사용량 전체
         for _, row in missing.iterrows():
             lines.append(f"- {row['품목코드']} / {row['품목명(규격)']}")
 
-    return "\n".join(lines)
+    # 엑셀 저장용 컬럼 추가
+    sku_report["공급비중"] = (
+        sku_report["공급가액"] /
+        sku_report["거래처명"].map(
+            store_report.set_index("거래처명")["본사공급액"]
+        )
+    )
 
+    sku_report["이익비중"] = (
+        sku_report["물류이익"] /
+        sku_report["거래처명"].map(
+            store_report.set_index("거래처명")["물류이익"]
+        ).replace(0, pd.NA)
+    )
+
+    with pd.ExcelWriter(
+        "월말_물류리포트.xlsx",
+        engine="openpyxl"
+    ) as writer:
+
+        store_report.to_excel(
+            writer,
+            sheet_name="STORE_REPORT",
+            index=False
+        )
+
+        sku_report.to_excel(
+            writer,
+            sheet_name="SKU_REPORT",
+            index=False
+        )
+
+    return "\n".join(lines)
 
 if __name__ == "__main__":
 
@@ -224,6 +255,30 @@ if __name__ == "__main__":
 
             print(
                 "텔레그램 응답:",
+                chat_id,
+                res.status_code,
+                res.text
+            )
+
+    for chat_id in TELEGRAM_CHAT_IDS:
+
+        with open(
+            "월말_물류리포트.xlsx",
+            "rb"
+        ) as file:
+
+            res = requests.post(
+                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendDocument",
+                data={
+                    "chat_id": chat_id
+                },
+                files={
+                    "document": file
+                }
+            )
+
+            print(
+                "엑셀 전송:",
                 chat_id,
                 res.status_code,
                 res.text
