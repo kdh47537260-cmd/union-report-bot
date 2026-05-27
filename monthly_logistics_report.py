@@ -150,6 +150,26 @@ def run_monthly_logistics_report():
     "공급가액",
     ascending=False
 )
+    store_sku_report = (
+        erp.groupby(["거래처명", "품목코드", "품목명(규격)"])
+        .agg(
+            수량=("수량", "sum"),
+            공급가액=("공급가액", "sum"),
+            총제조원가=("총제조원가", "sum"),
+            물류이익=("물류이익", "sum"),
+        )
+        .reset_index()
+    )
+
+    store_sku_report["물류이익률"] = (
+        store_sku_report["물류이익"] /
+        store_sku_report["공급가액"].replace(0, pd.NA)
+    )
+
+    store_sku_report = store_sku_report.sort_values(
+        ["거래처명", "공급가액"],
+        ascending=[True, False]
+    )
     
     with pd.ExcelWriter(
         "월말_물류리포트.xlsx",
@@ -192,6 +212,12 @@ def run_monthly_logistics_report():
         sku_report.to_excel(
             writer,
             sheet_name="SKU_REPORT",
+            index=False
+        )
+        
+        store_sku_report.to_excel(
+            writer,
+            sheet_name="STORE_SKU_REPORT",
             index=False
         )
 
@@ -304,11 +330,31 @@ def run_monthly_logistics_report():
             if profit_cell.value is not None and profit_cell.value < 0:
                 profit_cell.font = red_font
 
+        # STORE_SKU_REPORT 디자인
+        ws = workbook["STORE_SKU_REPORT"]
+        style_sheet(ws)
+
+        for row in range(2, ws.max_row + 1):
+
+            profit_cell = ws.cell(row=row, column=7)
+            margin_cell = ws.cell(row=row, column=8)
+
+            margin_cell.number_format = "0.0%"
+
+            ws.cell(row=row, column=4).number_format = '#,##0"개"'
+            ws.cell(row=row, column=5).number_format = '#,##0"원"'
+            ws.cell(row=row, column=6).number_format = '#,##0"원"'
+            ws.cell(row=row, column=7).number_format = '#,##0"원"'
+
+            if profit_cell.value is not None and profit_cell.value < 0:
+                profit_cell.font = red_font
+
         # 보기 편하게 시트 순서
         workbook._sheets = [
             workbook["SUMMARY"],
             workbook["STORE_REPORT"],
             workbook["SKU_REPORT"],
+            workbook["STORE_SKU_REPORT"],
         ]
 
     return "\n".join(lines)
