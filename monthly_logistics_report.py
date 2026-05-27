@@ -11,12 +11,23 @@ def to_number(value):
 
 
 def run_monthly_logistics_report():
-    master = pd.read_excel(MASTER_FILE)
-    erp = pd.read_excel(ERP_FILE)
-    
-    # 컬럼명 공백 제거
+
+    master = pd.read_excel(
+        MASTER_FILE,
+        sheet_name="PRODUCT_MASTER"
+    )
+
+    erp = pd.read_excel(
+        ERP_FILE,
+        sheet_name="판매현황",
+        header=1
+    )
+
     erp.columns = erp.columns.str.strip()
     master.columns = master.columns.str.strip()
+
+    print("MASTER 컬럼:")
+    print(master.columns.tolist())
 
     print("ERP 컬럼:")
     print(erp.columns.tolist())
@@ -24,9 +35,16 @@ def run_monthly_logistics_report():
     master["품목코드"] = master["품목코드"].astype(str).str.strip()
     erp["품목코드"] = erp["품목코드"].astype(str).str.strip()
 
-    master = master[master["사용"].astype(str).str.upper() == "Y"]
+    master = master[
+        master["사용여부"].astype(str).str.upper() == "Y"
+    ]
 
-    cost_map = dict(zip(master["품목코드"], master["제조원가"]))
+    cost_map = dict(
+        zip(
+            master["품목코드"],
+            master["제조원가(입력)"]
+        )
+    )
 
     erp["수량"] = erp["수량"].apply(to_number)
     erp["공급가액"] = erp["공급가액"].apply(to_number)
@@ -47,7 +65,7 @@ def run_monthly_logistics_report():
         .reset_index()
     )
 
-    store_report["물류이익률"] = store_report["물류이익"] / store_report["본사공급액"]
+    store_report["물류이익률"] = store_report["물류이익"] / store_report["본사공급액"].replace(0, pd.NA)
 
     sku_report = (
         erp.groupby(["거래처명", "품목코드", "품목명(규격)"])
