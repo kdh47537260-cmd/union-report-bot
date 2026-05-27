@@ -9,6 +9,8 @@ BOT_TOKEN = "8886052539:AAGrUs30DNxPsyRtL7RlDHOdeQGSDwV7cUk"
 
 CHAT_IDS = [
     "1490548765",   # 도현
+    "8650028323",   # 대표님
+    "8960843374",   # 경란님
 ]
 
 today = datetime.now() + timedelta(hours=9)
@@ -105,7 +107,7 @@ def fetch_unionpos_account(acc):
 
             time.sleep(1)
             driver.find_element(By.ID, "btnSearch").click()
-            time.sleep(5)
+            time.sleep(10)
 
             data = {}
             page = 1
@@ -469,8 +471,9 @@ for store_name in store_order:
 [{store_name}]
 총매출: {data['total_sales']}원
 영수건수(회전수): {data['receipt_count']}건 ({rotation}회전)
-전주동요일대비: {wow_text}
 테이블단가: {data['table_price']}원
+전주동요일대비: {wow_text}
+
 월누적매출: {data['month_sales']}원
 일평균매출: {avg_daily_sales}원
 월예상매출: {expected_month_sales}원
