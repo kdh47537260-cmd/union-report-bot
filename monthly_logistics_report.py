@@ -169,9 +169,22 @@ if __name__ == "__main__":
 
     for chat_id in TELEGRAM_CHAT_IDS:
 
-        for i in range(0, len(report), MAX_LEN):
+        chunks = []
+        current = ""
 
-            chunk = report[i:i + MAX_LEN]
+        for line in report.split("\n"):
+
+            if len(current) + len(line) + 1 > MAX_LEN:
+                chunks.append(current)
+                current = line
+
+            else:
+                current += "\n" + line
+
+        if current:
+            chunks.append(current)
+
+        for chunk in chunks:
 
             payload = {
                 "chat_id": chat_id,
@@ -184,6 +197,11 @@ if __name__ == "__main__":
                 timeout=15
             )
 
-            print("텔레그램 응답:", chat_id, res.status_code, res.text)
+            print(
+                "텔레그램 응답:",
+                chat_id,
+                res.status_code,
+                res.text
+            )
 
     print("텔레그램 전송 완료")
