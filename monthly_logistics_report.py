@@ -89,7 +89,7 @@ def run_monthly_logistics_report():
     total_profit = store_report["물류이익"].sum()
     total_margin = total_profit / total_supply if total_supply != 0 else 0
 
-        lines.append(f"""
+    lines.append(f"""
 [월말 물류이익 리포트]
 
 전체 본사공급액: {total_supply:,.0f}원
