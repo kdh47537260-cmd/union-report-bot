@@ -120,11 +120,18 @@ SKU 사용량 전체
 
         store_sku = sku_report[
             sku_report["거래처명"] == row["거래처명"]
-        ].sort_values(
-            "수량",
-            ascending=False
+        ].copy()
+
+        store_sku["공급비중"] = (
+            store_sku["공급가액"] /
+            row["본사공급액"]
         )
 
+        store_sku = store_sku.sort_values(
+            "공급비중",
+            ascending=False
+        )
+        
         for _, sku in store_sku.iterrows():
 
             supply_ratio = (
@@ -139,8 +146,14 @@ SKU 사용량 전체
                 else 0
             )
 
+            item_name = (
+                sku['품목명(규격)']
+                .replace("유월의보리 ", "")
+                .replace("유월의보리", "")
+            )
+
             lines.append(
-                f"- {sku['품목명(규격)']} / "
+                f"- {item_name} / "
                 f"{sku['수량']:,.0f}개 / "
                 f"공급비중 {supply_ratio:.1%} / "
                 f"이익 {sku['물류이익']:,.0f}원 ({profit_ratio:.1%})"
