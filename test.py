@@ -472,7 +472,7 @@ for store_name in store_order:
 총매출: {data['total_sales']}원
 영수건수(회전수): {data['receipt_count']}건 ({rotation}회전)
 테이블단가: {data['table_price']}원
-전주동요일대비: {wow_text}
+증감률(-1W): {wow_text}
 
 월누적매출: {data['month_sales']}원
 일평균매출: {avg_daily_sales}원
