@@ -13,6 +13,14 @@ def to_number(value):
 def run_monthly_logistics_report():
     master = pd.read_excel(MASTER_FILE)
     erp = pd.read_excel(ERP_FILE)
+    
+    # 컬럼명 공백 제거
+    erp.columns = erp.columns.str.strip()
+    master.columns = master.columns.str.strip()
+
+    print("ERP 컬럼:")
+    print(erp.columns.tolist())
+    ```
 
     master["품목코드"] = master["품목코드"].astype(str).str.strip()
     erp["품목코드"] = erp["품목코드"].astype(str).str.strip()
