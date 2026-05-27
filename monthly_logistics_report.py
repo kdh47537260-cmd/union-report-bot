@@ -170,16 +170,28 @@ if __name__ == "__main__":
     for chat_id in TELEGRAM_CHAT_IDS:
 
         chunks = []
+        sections = report.split("━━━━━━━━━━")
         current = ""
 
-        for line in report.split("\n"):
+        for section in sections:
 
-            if len(current) + len(line) + 1 > MAX_LEN:
-                chunks.append(current)
-                current = line
+            section = section.strip()
+
+            if not section:
+                continue
+
+            section = "━━━━━━━━━━\n" + section
+
+            if len(current) + len(section) > MAX_LEN:
+
+                if current:
+                    chunks.append(current)
+
+                current = section
 
             else:
-                current += "\n" + line
+
+                current += "\n" + section
 
         if current:
             chunks.append(current)
