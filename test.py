@@ -16,6 +16,9 @@ yesterday = (today - timedelta(days=1)).strftime("%Y-%m-%d")
 month_start = today.replace(day=1).strftime("%Y-%m-%d")
 days_elapsed = (today - timedelta(days=1)).day
 days_in_month = calendar.monthrange(today.year, today.month)[1]
+last_week_same_day = (
+    today - timedelta(days=8)
+).strftime("%Y-%m-%d")
 review_target_date = f"{(today - timedelta(days=1)).month}.{(today - timedelta(days=1)).day}"
 
 union_accounts = [
@@ -152,6 +155,7 @@ def fetch_unionpos_account(acc):
             return data
 
         day_data = search_period(yesterday, yesterday, mode="day")
+        last_week_data = search_period(last_week_same_day, last_week_same_day, mode="day")
         month_data = search_period(month_start, yesterday, mode="month")
 
         for store_name, day in day_data.items():
@@ -160,6 +164,7 @@ def fetch_unionpos_account(acc):
                 "receipt_count": day["receipt_count"],
                 "table_price": day["table_price"],
                 "month_sales": month_data.get(store_name, {}).get("total_sales", "0"),
+                "last_week_sales": last_week_data.get(store_name, {}).get("total_sales", "0"),
             }
 
         return result
@@ -285,17 +290,22 @@ def fetch_okpos():
             }
 
         day_data = search_period(yesterday, yesterday)
-        
+
         time.sleep(6)
-        
+
+        last_week_data = search_period(last_week_same_day, last_week_same_day)
+
+        time.sleep(6)
+
         month_data = search_period(month_start, yesterday)
 
         return {
             "유월의보리 본점": {
                 "total_sales": day_data["total_sales"],
                 "receipt_count": day_data["receipt_count"],
-              "table_price": fmt(round(to_int(day_data["total_sales"]) / to_int(day_data["receipt_count"]))),
+                "table_price": fmt(round(to_int(day_data["total_sales"]) / to_int(day_data["receipt_count"]))),
                 "month_sales": month_data["total_sales"],
+                "last_week_sales": last_week_data["total_sales"],
             }
         }
 
@@ -433,6 +443,19 @@ for store_name in store_order:
 
     for idx, review in enumerate(reviews, start=1):
         review_text += f"\n\n{idx}. {review}"
+        
+    yesterday_sales_int = to_int(data["total_sales"])
+    last_week_sales_int = to_int(data.get("last_week_sales", "0"))
+
+    if last_week_sales_int > 0:
+        wow_rate = round(
+            (yesterday_sales_int - last_week_sales_int)
+            / last_week_sales_int * 100,
+            1
+        )
+        wow_text = f"{wow_rate:+}%"
+    else:
+        wow_text = "비교불가"
 
     month_sales_int = to_int(data["month_sales"])
 
@@ -446,6 +469,7 @@ for store_name in store_order:
 [{store_name}]
 총매출: {data['total_sales']}원
 영수건수(회전수): {data['receipt_count']}건 ({rotation}회전)
+전주동요일대비: {wow_text}
 테이블단가: {data['table_price']}원
 월누적매출: {data['month_sales']}원
 일평균매출: {avg_daily_sales}원
