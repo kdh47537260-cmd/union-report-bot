@@ -184,6 +184,29 @@ SKU 사용량 전체
         engine="openpyxl"
     ) as writer:
 
+        # 1) SUMMARY 시트
+        summary_df = pd.DataFrame({
+            "구분": [
+                "전체 본사공급액",
+                "전체 제조원가",
+                "전체 물류이익",
+                "전체 물류이익률",
+            ],
+            "값": [
+                total_supply,
+                total_cost,
+                total_profit,
+                total_margin,
+            ]
+        })
+
+        summary_df.to_excel(
+            writer,
+            sheet_name="SUMMARY",
+            index=False,
+            startrow=2
+        )
+
         store_report.to_excel(
             writer,
             sheet_name="STORE_REPORT",
@@ -196,7 +219,116 @@ SKU 사용량 전체
             index=False
         )
 
+        workbook = writer.book
+
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+
+        navy_fill = PatternFill("solid", fgColor="1F4E78")
+        light_fill = PatternFill("solid", fgColor="D9EAF7")
+        gray_fill = PatternFill("solid", fgColor="F2F2F2")
+        red_font = Font(color="C00000", bold=True)
+        white_bold = Font(color="FFFFFF", bold=True)
+        black_bold = Font(color="000000", bold=True)
+        thin_border = Border(
+            left=Side(style="thin", color="D9D9D9"),
+            right=Side(style="thin", color="D9D9D9"),
+            top=Side(style="thin", color="D9D9D9"),
+            bottom=Side(style="thin", color="D9D9D9"),
+        )
+
+        def style_sheet(ws):
+            ws.freeze_panes = "A2"
+            ws.auto_filter.ref = ws.dimensions
+
+            for row in ws.iter_rows():
+                for cell in row:
+                    cell.alignment = Alignment(
+                        horizontal="center",
+                        vertical="center"
+                    )
+                    cell.border = thin_border
+
+            for cell in ws[1]:
+                cell.fill = navy_fill
+                cell.font = white_bold
+
+            for col in ws.columns:
+                max_length = 0
+                col_letter = get_column_letter(col[0].column)
+
+                for cell in col:
+                    value = str(cell.value) if cell.value is not None else ""
+                    max_length = max(max_length, len(value))
+
+                    if isinstance(cell.value, (int, float)):
+                        if "율" in str(ws.cell(row=1, column=cell.column).value) or "비중" in str(ws.cell(row=1, column=cell.column).value):
+                            cell.number_format = "0.0%"
+                        else:
+                            cell.number_format = '#,##0'
+
+                ws.column_dimensions[col_letter].width = min(max_length + 4, 35)
+
+        # SUMMARY 디자인
+        ws = workbook["SUMMARY"]
+        ws["A1"] = "월말 물류이익 리포트"
+        ws["A1"].font = Font(size=18, bold=True, color="1F4E78")
+        ws.merge_cells("A1:B1")
+
+        for cell in ws[3]:
+            cell.fill = navy_fill
+            cell.font = white_bold
+            cell.alignment = Alignment(horizontal="center")
+
+        for row in ws.iter_rows(min_row=4, max_row=7):
+            for cell in row:
+                cell.border = thin_border
+                cell.alignment = Alignment(horizontal="center")
+
+        ws["B4"].number_format = '#,##0"원"'
+        ws["B5"].number_format = '#,##0"원"'
+        ws["B6"].number_format = '#,##0"원"'
+        ws["B7"].number_format = "0.0%"
+
+        ws.column_dimensions["A"].width = 22
+        ws.column_dimensions["B"].width = 22
+
+        # STORE_REPORT 디자인
+        ws = workbook["STORE_REPORT"]
+        style_sheet(ws)
+
+        for row in range(2, ws.max_row + 1):
+            margin_cell = ws.cell(row=row, column=5)
+            margin_cell.number_format = "0.0%"
+
+            if margin_cell.value is not None and margin_cell.value >= 0.4:
+                margin_cell.fill = light_fill
+                margin_cell.font = black_bold
+
+        # SKU_REPORT 디자인
+        ws = workbook["SKU_REPORT"]
+        style_sheet(ws)
+
+        for row in range(2, ws.max_row + 1):
+            profit_cell = ws.cell(row=row, column=7)
+            supply_ratio_cell = ws.cell(row=row, column=9)
+            profit_ratio_cell = ws.cell(row=row, column=10)
+
+            supply_ratio_cell.number_format = "0.0%"
+            profit_ratio_cell.number_format = "0.0%"
+
+            if profit_cell.value is not None and profit_cell.value < 0:
+                profit_cell.font = red_font
+
+        # 보기 편하게 시트 순서
+        workbook._sheets = [
+            workbook["SUMMARY"],
+            workbook["STORE_REPORT"],
+            workbook["SKU_REPORT"],
+        ]
+
     return "\n".join(lines)
+
 
 if __name__ == "__main__":
 
