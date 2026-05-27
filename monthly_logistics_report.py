@@ -6,7 +6,10 @@ MASTER_FILE = "유월의보리_product_master.xlsx"
 ERP_FILE = "erp_sales.xlsx"
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+TELEGRAM_CHAT_IDS = [
+    "1490548765",   # 도현
+]
 
 def to_number(value):
     if pd.isna(value):
@@ -152,4 +155,35 @@ SKU 사용량 전체
 
 
 if __name__ == "__main__":
-    print(run_monthly_logistics_report())
+
+    report = run_monthly_logistics_report()
+
+    print(report)
+
+    if not TELEGRAM_BOT_TOKEN:
+        raise Exception("TELEGRAM_BOT_TOKEN 환경변수 없음")
+
+    telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+
+    MAX_LEN = 3500
+
+    for chat_id in TELEGRAM_CHAT_IDS:
+
+        for i in range(0, len(report), MAX_LEN):
+
+            chunk = report[i:i + MAX_LEN]
+
+            payload = {
+                "chat_id": chat_id,
+                "text": chunk
+            }
+
+            res = requests.post(
+                telegram_url,
+                data=payload,
+                timeout=15
+            )
+
+            print("텔레그램 응답:", chat_id, res.status_code, res.text)
+
+    print("텔레그램 전송 완료")
