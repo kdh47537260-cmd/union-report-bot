@@ -108,12 +108,14 @@ def run_monthly_logistics_report():
     lines.append(f"""
 [월말 물류이익 리포트]
 
-전체 공급가액: {total_supply:,.0f}원
-전체 부가세: {total_vat:,.0f}원
-전체 청구합계: {total_invoice:,.0f}원
-전체 제조원가: {total_cost:,.0f}원
-전체 물류이익: {total_profit:,.0f}원
-전체 물류이익률: {total_margin:.1%}
+TOTAL
+공급가액: {total_supply:,.0f}원
+부가세: {total_vat:,.0f}원
+공급가+부가세: {total_invoice:,.0f}원
+
+제조원가: {total_cost:,.0f}원
+물류이익: {total_profit:,.0f}원
+물류 이익률: {total_margin:.1%}
 """)
 
     for _, row in store_report.iterrows():
