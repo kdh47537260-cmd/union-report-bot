@@ -1,1 +1,1 @@
-worker: python test.py
+worker: python monthly_logistics_report.py
