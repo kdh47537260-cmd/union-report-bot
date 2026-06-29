@@ -269,6 +269,10 @@ TOTAL
         from openpyxl.utils import get_column_letter
 
         navy_fill = PatternFill("solid", fgColor="1F4E78")
+        dark_fill = PatternFill("solid", fgColor="1F2933")
+        green_fill = PatternFill("solid", fgColor="1F7A68")
+        green_soft_fill = PatternFill("solid", fgColor="DDEFEA")
+        yellow_fill = PatternFill("solid", fgColor="FFF7D6")
         light_fill = PatternFill("solid", fgColor="D9EAF7")
         gray_fill = PatternFill("solid", fgColor="F2F2F2")
         red_font = Font(color="C00000", bold=True)
@@ -339,6 +343,29 @@ TOTAL
         ws.column_dimensions["A"].width = 22
         ws.column_dimensions["B"].width = 22
 
+        # SUMMARY KPI cards
+        kpis = [
+            ("공급가액", total_supply, '#,##0"원"', "D3:E4"),
+            ("제조원가", total_cost, '#,##0"원"', "F3:G4"),
+            ("물류이익", total_profit, '#,##0"원"', "D6:E7"),
+            ("물류이익률", total_margin, "0.0%", "F6:G7"),
+        ]
+        for label, value, number_format, cell_range in kpis:
+            ws.merge_cells(cell_range)
+            card = ws[cell_range.split(":")[0]]
+            card.value = f"{label}\n{value}"
+            card.fill = green_soft_fill if label != "물류이익률" else yellow_fill
+            card.font = Font(size=13, bold=True, color="1F2933")
+            card.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            card.border = thin_border
+            card.number_format = number_format
+        ws.column_dimensions["D"].width = 18
+        ws.column_dimensions["E"].width = 18
+        ws.column_dimensions["F"].width = 18
+        ws.column_dimensions["G"].width = 18
+        for row in [3, 4, 6, 7]:
+            ws.row_dimensions[row].height = 26
+
         # STORE_REPORT 디자인
         ws = workbook["STORE_REPORT"]
         style_sheet(ws)
@@ -390,6 +417,76 @@ TOTAL
 
             if profit_cell.value is not None and profit_cell.value < 0:
                 profit_cell.font = red_font
+
+        def apply_report_layout(ws, title_text, money_columns=(), percent_columns=(), qty_columns=()):
+            ws.insert_rows(1)
+            max_col = ws.max_column
+            max_row = ws.max_row
+            title_range = f"A1:{get_column_letter(max_col)}1"
+            ws.merge_cells(title_range)
+            ws["A1"] = title_text
+            ws["A1"].fill = dark_fill
+            ws["A1"].font = Font(size=15, bold=True, color="FFFFFF")
+            ws["A1"].alignment = Alignment(horizontal="left", vertical="center")
+            ws.row_dimensions[1].height = 28
+
+            header = ws[2]
+            for cell in header:
+                cell.fill = green_fill
+                cell.font = white_bold
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+                cell.border = thin_border
+
+            for row in ws.iter_rows(min_row=3, max_row=max_row):
+                for cell in row:
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                    cell.border = thin_border
+                    if cell.row % 2 == 1:
+                        cell.fill = PatternFill("solid", fgColor="FAFAFA")
+
+            for col in money_columns:
+                for cell in ws[get_column_letter(col)][2:]:
+                    cell.number_format = '#,##0"원"'
+                    cell.alignment = Alignment(horizontal="right", vertical="center")
+
+            for col in percent_columns:
+                for cell in ws[get_column_letter(col)][2:]:
+                    cell.number_format = "0.0%"
+                    cell.alignment = Alignment(horizontal="right", vertical="center")
+
+            for col in qty_columns:
+                for cell in ws[get_column_letter(col)][2:]:
+                    cell.number_format = '#,##0'
+                    cell.alignment = Alignment(horizontal="right", vertical="center")
+
+            for col in ws.columns:
+                col_letter = get_column_letter(col[0].column)
+                max_length = max(len(str(cell.value)) if cell.value is not None else 0 for cell in col)
+                ws.column_dimensions[col_letter].width = min(max(max_length + 3, 11), 34)
+
+            ws.freeze_panes = "A3"
+            ws.auto_filter.ref = f"A2:{get_column_letter(max_col)}{max_row}"
+
+        apply_report_layout(
+            workbook["STORE_REPORT"],
+            "지점별 물류이익 요약",
+            money_columns=(2, 3, 4, 5, 6),
+            percent_columns=(7,),
+        )
+        apply_report_layout(
+            workbook["SKU_REPORT"],
+            "SKU별 공급/이익 분석",
+            money_columns=(4, 5, 6),
+            percent_columns=(7, 8, 9),
+            qty_columns=(3,),
+        )
+        apply_report_layout(
+            workbook["STORE_SKU_REPORT"],
+            "지점별 SKU 상세",
+            money_columns=(5, 6, 7),
+            percent_columns=(8,),
+            qty_columns=(4,),
+        )
 
         # 보기 편하게 시트 순서
         workbook._sheets = [
