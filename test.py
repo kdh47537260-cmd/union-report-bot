@@ -5,6 +5,7 @@ import calendar
 import requests
 import time
 import random
+import re
 
 BOT_TOKEN = "8886052539:AAGrUs30DNxPsyRtL7RlDHOdeQGSDwV7cUk"
 
@@ -20,7 +21,7 @@ days_in_month = calendar.monthrange(today.year, today.month)[1]
 last_week_same_day = (
     today - timedelta(days=8)
 ).strftime("%Y-%m-%d")
-review_target_date = f"{(today - timedelta(days=1)).month}.{(today - timedelta(days=1)).day}"
+review_target_day = (today - timedelta(days=1)).date()
 
 union_accounts = [
     {"id": "sz77971", "pw": "04(1)"},
@@ -339,6 +340,36 @@ query getVisitorReviews($input: VisitorReviewsInput) {
 }
 """
 
+def parse_review_created_date(created):
+    created = created or ""
+
+    full_date = re.search(r"(\d{4})\D+(\d{1,2})\D+(\d{1,2})", created)
+    if full_date:
+        year, month, day = map(int, full_date.groups())
+        return datetime(year, month, day).date()
+
+    month_day = re.search(r"(?<!\d)(\d{1,2})\D+(\d{1,2})(?!\d)", created)
+    if month_day:
+        month, day = map(int, month_day.groups())
+        year = today.year
+        parsed = datetime(year, month, day).date()
+
+        if parsed > today.date():
+            parsed = datetime(year - 1, month, day).date()
+
+        return parsed
+
+    if "어제" in created:
+        return review_target_day
+
+    if re.search(r"1\s*일\s*전", created) or "하루 전" in created:
+        return review_target_day
+
+    if "오늘" in created:
+        return today.date()
+
+    return None
+
 def fetch_reviews():
     review_data = {}
     review_errors = {}
@@ -456,8 +487,9 @@ def fetch_reviews():
             for item in items:
                 created = item.get("created") or ""
                 body = (item.get("body") or "").replace("\n", " ").strip()
+                created_date = parse_review_created_date(created)
 
-                if review_target_date not in created:
+                if created_date != review_target_day:
                     continue
 
                 if body:
