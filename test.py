@@ -340,6 +340,7 @@ query getVisitorReviews($input: VisitorReviewsInput) {
 
 def fetch_reviews():
     review_data = {}
+    review_errors = {}
 
     for store_name, place_id in PLACE_IDS.items():
         try:
@@ -376,8 +377,34 @@ def fetch_reviews():
                 "query": QUERY,
             }]
 
-            res = requests.post(url, headers=headers, json=payload)
-            data = res.json()
+            res = requests.post(url, headers=headers, json=payload, timeout=20)
+            content_type = res.headers.get("content-type", "")
+            response_text = res.text or ""
+            response_preview = response_text[:200].replace("\n", " ").strip()
+
+            if (
+                res.status_code != 200
+                or not response_text.strip()
+                or not response_text.lstrip().startswith(("[", "{"))
+            ):
+                if "captcha" in response_text.lower() or "wtm_captcha" in response_text.lower():
+                    reason = "네이버 캡차/봇 차단"
+                elif not response_text.strip():
+                    reason = "빈 응답"
+                else:
+                    reason = "JSON이 아닌 응답"
+
+                raise ValueError(
+                    f"{reason} status={res.status_code} content_type={content_type} preview={response_preview}"
+                )
+
+            try:
+                data = res.json()
+            except ValueError as e:
+                raise ValueError(
+                    f"JSON 파싱 실패 status={res.status_code} content_type={content_type} preview={response_preview}"
+                ) from e
+
             items = data[0]["data"]["visitorReviews"]["items"]
 
             review_texts = []
@@ -398,8 +425,9 @@ def fetch_reviews():
         except Exception as e:
             print("리뷰 조회 실패:", store_name, e)
             review_data[store_name] = []
+            review_errors[store_name] = str(e)
 
-    return review_data
+    return review_data, review_errors
 
 
 all_store_data = {}
@@ -409,7 +437,21 @@ all_store_data.update(fetch_okpos())
 for acc in union_accounts:
     all_store_data.update(fetch_unionpos_account(acc))
 
-review_data = fetch_reviews()
+review_data, review_errors = fetch_reviews()
+
+def build_review_text(store_name):
+    reviews = review_data.get(store_name, [])
+    error = review_errors.get(store_name)
+
+    if error:
+        return f"전일 신규리뷰: 조회 실패\n사유: {error}"
+
+    review_text = f"전일 신규리뷰: {len(reviews)}건"
+
+    for idx, review in enumerate(reviews, start=1):
+        review_text += f"\n\n{idx}. {review}"
+
+    return review_text
 
 report_lines = [
     "[유월의보리 일매출 리포트]",
@@ -421,11 +463,7 @@ for store_name in store_order:
     data = all_store_data.get(store_name)
 
     if not data:
-        reviews = review_data.get(store_name, [])
-        review_text = f"전일 신규리뷰: {len(reviews)}건"
-
-        for idx, review in enumerate(reviews, start=1):
-            review_text += f"\n\n{idx}. {review}"
+        review_text = build_review_text(store_name)
 
         report_lines.append(f"""
 [{store_name}]
@@ -438,12 +476,8 @@ for store_name in store_order:
     table_count = TABLE_COUNTS.get(store_name, 1)
     rotation = round(receipt_count_int / table_count, 1)
 
-    reviews = review_data.get(store_name, [])
-    review_text = f"전일 신규리뷰: {len(reviews)}건"
+    review_text = build_review_text(store_name)
 
-    for idx, review in enumerate(reviews, start=1):
-        review_text += f"\n\n{idx}. {review}"
-        
     yesterday_sales_int = to_int(data["total_sales"])
     last_week_sales_int = to_int(data.get("last_week_sales", "0"))
 
