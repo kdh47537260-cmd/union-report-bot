@@ -10,6 +10,8 @@ BOT_TOKEN = "8886052539:AAGrUs30DNxPsyRtL7RlDHOdeQGSDwV7cUk"
 
 CHAT_IDS = [
     "1490548765",   # 도현
+    "8650028323",   # 대표님
+    "8960843374",   # 경란님
 ]
 
 today = datetime.now() + timedelta(hours=9)
@@ -490,7 +492,7 @@ def build_review_text(store_name):
     error = review_errors.get(store_name)
 
     if error:
-        return f"전일 신규리뷰: 조회 실패\n사유: {error}"
+        return f"전일 신규리뷰: 네이버 차단/조회 실패\n사유: {error}"
 
     review_text = f"전일 신규리뷰: {len(reviews)}건"
 
