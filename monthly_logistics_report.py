@@ -17,6 +17,32 @@ def to_number(value):
     return float(str(value).replace(",", "").strip())
 
 
+STORE_ORDER = {
+    "양재": 0,
+    "신흥": 1,
+    "본점": 2,
+    "신내": 3,
+}
+
+
+def normalize_store_name(value):
+    if pd.isna(value):
+        return value
+
+    name = str(value).strip()
+
+    if "양재" in name:
+        return "양재"
+    if "신흥" in name:
+        return "신흥"
+    if "본점" in name:
+        return "본점"
+    if "신내" in name:
+        return "신내"
+
+    return name
+
+
 def run_monthly_logistics_report():
 
     master = pd.read_excel(
@@ -37,9 +63,7 @@ def run_monthly_logistics_report():
         erp["품목코드"].notna()
     ]
 
-    erp["거래처명"] = erp["거래처명"].replace({
-        "유월의 보리(신내점)": "유월의 보리 신내점"
-    })
+    erp["거래처명"] = erp["거래처명"].apply(normalize_store_name)
 
     master["품목코드"] = master["품목코드"].astype(str).str.strip()
     erp["품목코드"] = erp["품목코드"].astype(str).str.strip()
@@ -76,6 +100,14 @@ def run_monthly_logistics_report():
             물류이익=("물류이익","sum"),
         )
         .reset_index()
+    )
+
+    store_report["_sort"] = store_report["거래처명"].map(STORE_ORDER).fillna(99)
+    store_report = (
+        store_report
+        .sort_values(["_sort", "거래처명"])
+        .drop(columns=["_sort"])
+        .reset_index(drop=True)
     )
     
     store_report["물류이익률"] = (
@@ -171,6 +203,14 @@ TOTAL
     store_sku_report = store_sku_report.sort_values(
         ["거래처명", "공급가액"],
         ascending=[True, False]
+    )
+
+    store_sku_report["_sort"] = store_sku_report["거래처명"].map(STORE_ORDER).fillna(99)
+    store_sku_report = (
+        store_sku_report
+        .sort_values(["_sort", "거래처명", "공급가액"], ascending=[True, True, False])
+        .drop(columns=["_sort"])
+        .reset_index(drop=True)
     )
     
     with pd.ExcelWriter(
