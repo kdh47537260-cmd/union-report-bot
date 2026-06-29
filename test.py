@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import calendar
 import requests
 import time
+import random
 
 BOT_TOKEN = "8886052539:AAGrUs30DNxPsyRtL7RlDHOdeQGSDwV7cUk"
 
@@ -341,17 +342,20 @@ query getVisitorReviews($input: VisitorReviewsInput) {
 def fetch_reviews():
     review_data = {}
     review_errors = {}
+    review_targets = list(PLACE_IDS.items())
+    random.shuffle(review_targets)
 
-    for store_name, place_id in PLACE_IDS.items():
+    for store_name, place_id in review_targets:
         try:
             url = "https://pcmap-api.place.naver.com/graphql"
+            place_url = f"https://pcmap.place.naver.com/restaurant/{place_id}/review/visitor?reviewSort=recent"
 
             headers = {
                 "accept": "*/*",
                 "accept-language": "ko",
                 "content-type": "application/json",
                 "origin": "https://pcmap.place.naver.com",
-                "referer": f"https://pcmap.place.naver.com/restaurant/{place_id}/review/visitor?reviewSort=recent",
+                "referer": place_url,
                 "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0",
             }
 
@@ -377,33 +381,73 @@ def fetch_reviews():
                 "query": QUERY,
             }]
 
-            res = requests.post(url, headers=headers, json=payload, timeout=20)
-            content_type = res.headers.get("content-type", "")
-            response_text = res.text or ""
-            response_preview = response_text[:200].replace("\n", " ").strip()
+            last_error = None
 
-            if (
-                res.status_code != 200
-                or not response_text.strip()
-                or not response_text.lstrip().startswith(("[", "{"))
-            ):
-                if "captcha" in response_text.lower() or "wtm_captcha" in response_text.lower():
-                    reason = "네이버 캡차/봇 차단"
-                elif not response_text.strip():
-                    reason = "빈 응답"
+            with requests.Session() as session:
+                session.headers.update({
+                    "accept-language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+                    "user-agent": headers["user-agent"],
+                })
+
+                for attempt in range(1, 4):
+                    if attempt > 1:
+                        retry_delay = random.uniform(20, 45)
+                        print("리뷰 재시도 대기:", store_name, attempt, f"{retry_delay:.1f}초")
+                        time.sleep(retry_delay)
+
+                    try:
+                        session.get(
+                            place_url,
+                            headers={
+                                "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                                "referer": "https://pcmap.place.naver.com/",
+                            },
+                            timeout=20,
+                        )
+                    except Exception as e:
+                        print("리뷰 페이지 선방문 실패:", store_name, e)
+
+                    try:
+                        res = session.post(url, headers=headers, json=payload, timeout=20)
+                    except Exception as e:
+                        last_error = e
+                        print("리뷰 API 요청 실패:", store_name, e)
+                        continue
+
+                    content_type = res.headers.get("content-type", "")
+                    response_text = res.text or ""
+                    response_preview = response_text[:200].replace("\n", " ").strip()
+
+                    if (
+                        res.status_code != 200
+                        or not response_text.strip()
+                        or not response_text.lstrip().startswith(("[", "{"))
+                    ):
+                        if "captcha" in response_text.lower() or "wtm_captcha" in response_text.lower():
+                            reason = "네이버 캡차/봇 차단"
+                        elif not response_text.strip():
+                            reason = "빈 응답"
+                        else:
+                            reason = "JSON이 아닌 응답"
+
+                        last_error = ValueError(
+                            f"{reason} attempt={attempt} status={res.status_code} content_type={content_type} preview={response_preview}"
+                        )
+                        print("리뷰 응답 비정상:", store_name, last_error)
+                        continue
+
+                    try:
+                        data = res.json()
+                    except ValueError as e:
+                        last_error = ValueError(
+                            f"JSON 파싱 실패 attempt={attempt} status={res.status_code} content_type={content_type} preview={response_preview}"
+                        )
+                        print("리뷰 JSON 파싱 실패:", store_name, last_error)
+                        continue
+
+                    break
                 else:
-                    reason = "JSON이 아닌 응답"
-
-                raise ValueError(
-                    f"{reason} status={res.status_code} content_type={content_type} preview={response_preview}"
-                )
-
-            try:
-                data = res.json()
-            except ValueError as e:
-                raise ValueError(
-                    f"JSON 파싱 실패 status={res.status_code} content_type={content_type} preview={response_preview}"
-                ) from e
+                    raise last_error or ValueError("리뷰 조회 실패")
 
             items = data[0]["data"]["visitorReviews"]["items"]
 
@@ -426,6 +470,8 @@ def fetch_reviews():
             print("리뷰 조회 실패:", store_name, e)
             review_data[store_name] = []
             review_errors[store_name] = str(e)
+
+        time.sleep(random.uniform(8, 18))
 
     return review_data, review_errors
 
