@@ -267,6 +267,7 @@ TOTAL
 
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
         from openpyxl.utils import get_column_letter
+        from openpyxl.chart import BarChart, Reference
 
         navy_fill = PatternFill("solid", fgColor="1F4E78")
         dark_fill = PatternFill("solid", fgColor="1F2933")
@@ -488,8 +489,154 @@ TOTAL
             qty_columns=(4,),
         )
 
+        def style_block(ws, cell_range, fill, font=None):
+            for row in ws[cell_range]:
+                for cell in row:
+                    cell.fill = fill
+                    cell.border = thin_border
+                    if font:
+                        cell.font = font
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        def create_ceo_dashboard():
+            ws = workbook.create_sheet("CEO_DASHBOARD", 0)
+            ws.sheet_view.showGridLines = False
+
+            ws.merge_cells("A1:L1")
+            ws["A1"] = "월말 물류 CEO 대시보드"
+            ws["A1"].fill = dark_fill
+            ws["A1"].font = Font(size=20, bold=True, color="FFFFFF")
+            ws["A1"].alignment = Alignment(horizontal="left", vertical="center")
+            ws.row_dimensions[1].height = 34
+
+            ws.merge_cells("A2:L2")
+            ws["A2"] = "지점별 공급가액, 제조원가, 물류이익 흐름을 한 화면에서 확인합니다."
+            ws["A2"].fill = gray_fill
+            ws["A2"].font = Font(size=11, color="5D6975")
+            ws["A2"].alignment = Alignment(horizontal="left", vertical="center")
+
+            cards = [
+                ("공급가액", total_supply, '#,##0"원"', "A4:C6", green_soft_fill),
+                ("제조원가", total_cost, '#,##0"원"', "D4:F6", light_fill),
+                ("물류이익", total_profit, '#,##0"원"', "G4:I6", yellow_fill),
+                ("물류이익률", total_margin, "0.0%", "J4:L6", green_soft_fill),
+            ]
+            for label, value, number_format, cell_range, fill in cards:
+                ws.merge_cells(cell_range)
+                cell = ws[cell_range.split(":")[0]]
+                cell.value = value
+                cell.number_format = number_format
+                cell.fill = fill
+                cell.font = Font(size=18, bold=True, color="1F2933")
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+                cell.border = thin_border
+                label_cell = ws.cell(row=cell.row, column=cell.column)
+                ws.cell(row=cell.row - 1, column=cell.column).value = label
+                ws.cell(row=cell.row - 1, column=cell.column).font = Font(size=11, bold=True, color="1F2933")
+
+            ws["A8"] = "지점별 성과"
+            ws["A8"].font = Font(size=14, bold=True, color="1F2933")
+            store_headers = ["지점", "공급가액", "제조원가", "물류이익", "이익률"]
+            for col, header in enumerate(store_headers, 1):
+                cell = ws.cell(row=9, column=col, value=header)
+                cell.fill = green_fill
+                cell.font = white_bold
+                cell.alignment = Alignment(horizontal="center")
+                cell.border = thin_border
+
+            for r, (_, row) in enumerate(store_report.iterrows(), 10):
+                values = [
+                    row["거래처명"],
+                    row["공급가액"],
+                    row["총제조원가"],
+                    row["물류이익"],
+                    row["물류이익률"],
+                ]
+                for c, value in enumerate(values, 1):
+                    cell = ws.cell(row=r, column=c, value=value)
+                    cell.border = thin_border
+                    cell.alignment = Alignment(horizontal="right" if c > 1 else "center")
+                    if r % 2 == 0:
+                        cell.fill = PatternFill("solid", fgColor="FAFAFA")
+                    if c in (2, 3, 4):
+                        cell.number_format = '#,##0"원"'
+                    if c == 5:
+                        cell.number_format = "0.0%"
+
+            chart = BarChart()
+            chart.title = "지점별 공급가액"
+            chart.y_axis.title = "공급가액"
+            chart.x_axis.title = "지점"
+            data = Reference(ws, min_col=2, min_row=9, max_row=9 + len(store_report))
+            cats = Reference(ws, min_col=1, min_row=10, max_row=9 + len(store_report))
+            chart.add_data(data, titles_from_data=True)
+            chart.set_categories(cats)
+            chart.legend = None
+            chart.height = 8
+            chart.width = 16
+            ws.add_chart(chart, "G8")
+
+            ws["A18"] = "Top SKU 공급가액"
+            ws["A18"].font = Font(size=14, bold=True, color="1F2933")
+            sku_headers = ["품목코드", "품목명", "공급가액", "물류이익", "이익률"]
+            for col, header in enumerate(sku_headers, 1):
+                cell = ws.cell(row=19, column=col, value=header)
+                cell.fill = green_fill
+                cell.font = white_bold
+                cell.alignment = Alignment(horizontal="center")
+                cell.border = thin_border
+
+            top_sku = sku_report.sort_values("공급가액", ascending=False).head(8)
+            for r, (_, row) in enumerate(top_sku.iterrows(), 20):
+                values = [
+                    row["품목코드"],
+                    row["품목명(규격)"],
+                    row["공급가액"],
+                    row["물류이익"],
+                    row["물류이익률"],
+                ]
+                for c, value in enumerate(values, 1):
+                    cell = ws.cell(row=r, column=c, value=value)
+                    cell.border = thin_border
+                    cell.alignment = Alignment(horizontal="right" if c >= 3 else "left")
+                    if r % 2 == 0:
+                        cell.fill = PatternFill("solid", fgColor="FAFAFA")
+                    if c in (3, 4):
+                        cell.number_format = '#,##0"원"'
+                    if c == 5:
+                        cell.number_format = "0.0%"
+
+            ws["G18"] = "CEO 체크 포인트"
+            ws["G18"].font = Font(size=14, bold=True, color="1F2933")
+            notes = [
+                f"전체 물류이익률: {total_margin:.1%}",
+                f"최고 공급 지점: {store_report.sort_values('공급가액', ascending=False).iloc[0]['거래처명']}",
+                f"최고 이익 SKU: {sku_report.sort_values('물류이익', ascending=False).iloc[0]['품목명(규격)']}",
+            ]
+            for idx, note in enumerate(notes, 19):
+                ws.merge_cells(start_row=idx, start_column=7, end_row=idx, end_column=12)
+                cell = ws.cell(row=idx, column=7, value=note)
+                cell.fill = green_soft_fill
+                cell.border = thin_border
+                cell.font = Font(size=11, color="1F2933")
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+
+            widths = {
+                "A": 14, "B": 34, "C": 16, "D": 16, "E": 12,
+                "F": 3, "G": 16, "H": 16, "I": 16, "J": 16, "K": 16, "L": 16,
+            }
+            for col, width in widths.items():
+                ws.column_dimensions[col].width = width
+            for row in range(1, 30):
+                ws.row_dimensions[row].height = 22
+
+            ws.freeze_panes = "A8"
+
+        create_ceo_dashboard()
+
         # 보기 편하게 시트 순서
         workbook._sheets = [
+            workbook["CEO_DASHBOARD"],
             workbook["SUMMARY"],
             workbook["STORE_REPORT"],
             workbook["SKU_REPORT"],
