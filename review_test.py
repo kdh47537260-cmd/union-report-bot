@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta
+import http.cookiejar
+import json
 import os
 import random
 import time
-
-import requests
+from urllib import parse, request
+from urllib.error import HTTPError, URLError
 
 
 BOT_TOKEN = os.getenv(
@@ -83,80 +85,85 @@ def fetch_reviews(store_name, place_id, size=30):
     }]
 
     last_error = None
+    cookie_jar = http.cookiejar.CookieJar()
+    opener = request.build_opener(request.HTTPCookieProcessor(cookie_jar))
 
-    with requests.Session() as session:
-        session.headers.update({
-            "accept-language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-            "user-agent": user_agent,
-        })
+    for attempt in range(1, 4):
+        if attempt > 1:
+            delay = random.uniform(20, 45)
+            print("리뷰 재시도 대기:", store_name, attempt, f"{delay:.1f}초")
+            time.sleep(delay)
 
-        for attempt in range(1, 4):
-            if attempt > 1:
-                delay = random.uniform(20, 45)
-                print("리뷰 재시도 대기:", store_name, attempt, f"{delay:.1f}초")
-                time.sleep(delay)
+        try:
+            page_req = request.Request(
+                place_url,
+                headers={
+                    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "accept-language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+                    "referer": "https://pcmap.place.naver.com/",
+                    "user-agent": user_agent,
+                },
+            )
+            opener.open(page_req, timeout=20).read()
+        except Exception as e:
+            print("리뷰 페이지 선방문 실패:", store_name, e)
 
-            try:
-                session.get(
-                    place_url,
-                    headers={
-                        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                        "referer": "https://pcmap.place.naver.com/",
-                    },
-                    timeout=20,
-                )
-            except Exception as e:
-                print("리뷰 페이지 선방문 실패:", store_name, e)
+        try:
+            body = json.dumps(payload).encode("utf-8")
+            api_req = request.Request(url, data=body, headers=headers, method="POST")
+            with opener.open(api_req, timeout=20) as response:
+                status = response.status
+                content_type = response.headers.get("content-type", "")
+                response_text = response.read().decode("utf-8", errors="replace")
+        except HTTPError as e:
+            status = e.code
+            content_type = e.headers.get("content-type", "")
+            response_text = e.read().decode("utf-8", errors="replace")
+        except (URLError, TimeoutError, OSError) as e:
+            last_error = e
+            print("리뷰 API 요청 실패:", store_name, e)
+            continue
 
-            try:
-                response = session.post(url, headers=headers, json=payload, timeout=20)
-            except Exception as e:
-                last_error = e
-                print("리뷰 API 요청 실패:", store_name, e)
-                continue
+        preview = response_text[:200].replace("\n", " ").strip()
 
-            content_type = response.headers.get("content-type", "")
-            response_text = response.text or ""
-            preview = response_text[:200].replace("\n", " ").strip()
+        if (
+            status != 200
+            or not response_text.strip()
+            or not response_text.lstrip().startswith(("[", "{"))
+        ):
+            if "captcha" in response_text.lower() or "wtm_captcha" in response_text.lower():
+                reason = "네이버 캡차/봇 차단"
+            elif not response_text.strip():
+                reason = "빈 응답"
+            else:
+                reason = "JSON이 아닌 응답"
 
-            if (
-                response.status_code != 200
-                or not response_text.strip()
-                or not response_text.lstrip().startswith(("[", "{"))
-            ):
-                if "captcha" in response_text.lower() or "wtm_captcha" in response_text.lower():
-                    reason = "네이버 캡차/봇 차단"
-                elif not response_text.strip():
-                    reason = "빈 응답"
-                else:
-                    reason = "JSON이 아닌 응답"
+            last_error = ValueError(
+                f"{reason} attempt={attempt} status={status} "
+                f"content_type={content_type} preview={preview}"
+            )
+            print("리뷰 응답 비정상:", store_name, last_error)
+            continue
 
-                last_error = ValueError(
-                    f"{reason} attempt={attempt} status={response.status_code} "
-                    f"content_type={content_type} preview={preview}"
-                )
-                print("리뷰 응답 비정상:", store_name, last_error)
-                continue
+        try:
+            data = json.loads(response_text)
+        except ValueError:
+            last_error = ValueError(
+                f"JSON 파싱 실패 attempt={attempt} status={status} "
+                f"content_type={content_type} preview={preview}"
+            )
+            print("리뷰 JSON 파싱 실패:", store_name, last_error)
+            continue
 
-            try:
-                data = response.json()
-            except ValueError:
-                last_error = ValueError(
-                    f"JSON 파싱 실패 attempt={attempt} status={response.status_code} "
-                    f"content_type={content_type} preview={preview}"
-                )
-                print("리뷰 JSON 파싱 실패:", store_name, last_error)
-                continue
-
-            items = data[0]["data"]["visitorReviews"]["items"]
-            return [
-                {
-                    "created": item.get("created") or "",
-                    "body": (item.get("body") or "").replace("\n", " ").strip(),
-                }
-                for item in items
-                if (item.get("body") or "").strip()
-            ]
+        items = data[0]["data"]["visitorReviews"]["items"]
+        return [
+            {
+                "created": item.get("created") or "",
+                "body": (item.get("body") or "").replace("\n", " ").strip(),
+            }
+            for item in items
+            if (item.get("body") or "").strip()
+        ]
 
     raise last_error or ValueError("리뷰 조회 실패")
 
@@ -210,12 +217,15 @@ def send_telegram(text):
     for chat_id in CHAT_IDS:
         for i in range(0, len(text), max_len):
             chunk = text[i:i + max_len]
-            response = requests.post(
-                telegram_url,
-                data={"chat_id": chat_id, "text": chunk},
-                timeout=20,
-            )
-            print("텔레그램 응답:", response.status_code, response.text)
+            payload = parse.urlencode({
+                "chat_id": chat_id,
+                "text": chunk,
+            }).encode("utf-8")
+            telegram_req = request.Request(telegram_url, data=payload, method="POST")
+
+            with request.urlopen(telegram_req, timeout=20) as response:
+                response_text = response.read().decode("utf-8", errors="replace")
+                print("텔레그램 응답:", response.status, response_text)
 
 
 if __name__ == "__main__":
