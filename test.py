@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 import calendar
 import requests
 import time
-import random
 
 BOT_TOKEN = "8886052539:AAGrUs30DNxPsyRtL7RlDHOdeQGSDwV7cUk"
 
@@ -22,11 +21,11 @@ days_in_month = calendar.monthrange(today.year, today.month)[1]
 last_week_same_day = (
     today - timedelta(days=8)
 ).strftime("%Y-%m-%d")
-review_target_date = f"{(today - timedelta(days=1)).month}.{(today - timedelta(days=1)).day}"
 
 union_accounts = [
     {"id": "sz77971", "pw": "04(1)"},
     {"id": "sz83661", "pw": "02506"},
+    {"id": "sz86521", "pw": "03816"},
 ]
 
 store_order = [
@@ -34,6 +33,7 @@ store_order = [
     "유월의보리 양재점",
     "유월의보리 신내점",
     "유월의보리 성남신흥점",
+    "유월의보리 방배점",
 ]
 
 TABLE_COUNTS = {
@@ -41,6 +41,7 @@ TABLE_COUNTS = {
     "유월의보리 양재점": 18,
     "유월의보리 신내점": 10,
     "유월의보리 성남신흥점": 14,
+    "유월의보리 방배점": 14,
 }
 
 
@@ -69,6 +70,9 @@ def clean_store_name(name):
 
     if "신흥" in name or "성남" in name:
         return "유월의보리 성남신흥점"
+
+    if "방배" in name:
+        return "유월의보리 방배점"
 
     return name
 
@@ -319,187 +323,12 @@ def fetch_okpos():
     finally:
         driver.quit()
 
-PLACE_IDS = {
-    "유월의보리 본점": "1265080366",
-    "유월의보리 양재점": "1889387567",
-    "유월의보리 신내점": "2021210260",
-    "유월의보리 성남신흥점": "2032544088",
-}
-
-QUERY = """
-query getVisitorReviews($input: VisitorReviewsInput) {
-  visitorReviews(input: $input) {
-    items {
-      body
-      created
-      businessName
-      item { name }
-      author { nickname }
-    }
-    total
-  }
-}
-"""
-
-def fetch_reviews():
-    review_data = {}
-    review_errors = {}
-    review_targets = list(PLACE_IDS.items())
-    random.shuffle(review_targets)
-
-    for store_name, place_id in review_targets:
-        try:
-            url = "https://pcmap-api.place.naver.com/graphql"
-            place_url = f"https://pcmap.place.naver.com/restaurant/{place_id}/review/visitor?reviewSort=recent"
-
-            headers = {
-                "accept": "*/*",
-                "accept-language": "ko",
-                "content-type": "application/json",
-                "origin": "https://pcmap.place.naver.com",
-                "referer": place_url,
-                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0",
-            }
-
-            payload = [{
-                "operationName": "getVisitorReviews",
-                "variables": {
-                    "input": {
-                        "businessId": place_id,
-                        "businessType": "restaurant",
-                        "item": "0",
-                        "bookingBusinessId": place_id,
-                        "cidList": ["220036", "220037", "220053"],
-                        "getReactions": True,
-                        "getTrailer": True,
-                        "getUserStats": True,
-                        "includeContent": True,
-                        "includeReceiptPhotos": True,
-                        "isPhotoUsed": False,
-                        "size": 30,
-                        "sort": "recent",
-                    }
-                },
-                "query": QUERY,
-            }]
-
-            last_error = None
-
-            with requests.Session() as session:
-                session.headers.update({
-                    "accept-language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-                    "user-agent": headers["user-agent"],
-                })
-
-                for attempt in range(1, 4):
-                    if attempt > 1:
-                        retry_delay = random.uniform(20, 45)
-                        print("리뷰 재시도 대기:", store_name, attempt, f"{retry_delay:.1f}초")
-                        time.sleep(retry_delay)
-
-                    try:
-                        session.get(
-                            place_url,
-                            headers={
-                                "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                                "referer": "https://pcmap.place.naver.com/",
-                            },
-                            timeout=20,
-                        )
-                    except Exception as e:
-                        print("리뷰 페이지 선방문 실패:", store_name, e)
-
-                    try:
-                        res = session.post(url, headers=headers, json=payload, timeout=20)
-                    except Exception as e:
-                        last_error = e
-                        print("리뷰 API 요청 실패:", store_name, e)
-                        continue
-
-                    content_type = res.headers.get("content-type", "")
-                    response_text = res.text or ""
-                    response_preview = response_text[:200].replace("\n", " ").strip()
-
-                    if (
-                        res.status_code != 200
-                        or not response_text.strip()
-                        or not response_text.lstrip().startswith(("[", "{"))
-                    ):
-                        if "captcha" in response_text.lower() or "wtm_captcha" in response_text.lower():
-                            reason = "네이버 캡차/봇 차단"
-                        elif not response_text.strip():
-                            reason = "빈 응답"
-                        else:
-                            reason = "JSON이 아닌 응답"
-
-                        last_error = ValueError(
-                            f"{reason} attempt={attempt} status={res.status_code} content_type={content_type} preview={response_preview}"
-                        )
-                        print("리뷰 응답 비정상:", store_name, last_error)
-                        continue
-
-                    try:
-                        data = res.json()
-                    except ValueError as e:
-                        last_error = ValueError(
-                            f"JSON 파싱 실패 attempt={attempt} status={res.status_code} content_type={content_type} preview={response_preview}"
-                        )
-                        print("리뷰 JSON 파싱 실패:", store_name, last_error)
-                        continue
-
-                    break
-                else:
-                    raise last_error or ValueError("리뷰 조회 실패")
-
-            items = data[0]["data"]["visitorReviews"]["items"]
-
-            review_texts = []
-
-            for item in items:
-                created = item.get("created") or ""
-                body = (item.get("body") or "").replace("\n", " ").strip()
-
-                if review_target_date not in created:
-                    continue
-
-                if body:
-                    review_texts.append(body)
-
-            review_data[store_name] = list(dict.fromkeys(review_texts))
-            print("리뷰 수집 완료:", store_name, len(review_data[store_name]), "건")
-
-        except Exception as e:
-            print("리뷰 조회 실패:", store_name, e)
-            review_data[store_name] = []
-            review_errors[store_name] = str(e)
-
-        time.sleep(random.uniform(8, 18))
-
-    return review_data, review_errors
-
-
 all_store_data = {}
 
 all_store_data.update(fetch_okpos())
 
 for acc in union_accounts:
     all_store_data.update(fetch_unionpos_account(acc))
-
-review_data, review_errors = fetch_reviews()
-
-def build_review_text(store_name):
-    reviews = review_data.get(store_name, [])
-    error = review_errors.get(store_name)
-
-    if error:
-        return f"전일 신규리뷰: 네이버 차단/조회 실패\n사유: {error}"
-
-    review_text = f"전일 신규리뷰: {len(reviews)}건"
-
-    for idx, review in enumerate(reviews, start=1):
-        review_text += f"\n\n{idx}. {review}"
-
-    return review_text
 
 report_lines = [
     "[유월의보리 일매출 리포트]",
@@ -511,20 +340,15 @@ for store_name in store_order:
     data = all_store_data.get(store_name)
 
     if not data:
-        review_text = build_review_text(store_name)
-
         report_lines.append(f"""
 [{store_name}]
 조회 실패 또는 데이터 없음
-{review_text}
 """)
         continue
 
     receipt_count_int = int(data["receipt_count"].replace(",", ""))
     table_count = TABLE_COUNTS.get(store_name, 1)
     rotation = round(receipt_count_int / table_count, 1)
-
-    review_text = build_review_text(store_name)
 
     yesterday_sales_int = to_int(data["total_sales"])
     last_week_sales_int = to_int(data.get("last_week_sales", "0"))
@@ -557,8 +381,6 @@ for store_name in store_order:
 월누적매출: {data['month_sales']}원
 일평균매출: {avg_daily_sales}원
 월예상매출: {expected_month_sales}원
-
-{review_text}
 """)
     
 report = "\n".join(report_lines)
