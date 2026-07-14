@@ -180,15 +180,28 @@ def build_report():
             results[store_name] = (None, e)
             failed_stores.append((store_name, place_id))
 
-    for store_name, place_id in failed_stores:
-        print("전체 매장 처리 후 마지막 재시도:", store_name)
-        try:
-            results[store_name] = (
-                fetch_reviews(store_name, place_id, attempt=2),
-                None,
-            )
-        except Exception as e:
-            results[store_name] = (None, e)
+    retry_targets = failed_stores
+    for retry_number in range(1, 6):
+        if not retry_targets:
+            break
+
+        next_retry_targets = []
+        for store_name, place_id in retry_targets:
+            print(f"전체 매장 처리 후 재시도 {retry_number}/5:", store_name)
+            try:
+                results[store_name] = (
+                    fetch_reviews(
+                        store_name,
+                        place_id,
+                        attempt=retry_number + 1,
+                    ),
+                    None,
+                )
+            except Exception as e:
+                results[store_name] = (None, e)
+                next_retry_targets.append((store_name, place_id))
+
+        retry_targets = next_retry_targets
 
     for store_name in PLACE_IDS:
         reviews, error = results[store_name]
