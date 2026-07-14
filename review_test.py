@@ -2,8 +2,6 @@ from datetime import datetime, timedelta
 import http.cookiejar
 import json
 import os
-import random
-import time
 from urllib import parse, request
 from urllib.error import HTTPError, URLError
 
@@ -22,6 +20,7 @@ PLACE_IDS = {
     "유월의보리 본점": "1265080366",
     "유월의보리 신내점": "2021210260",
     "유월의보리 성남신흥점": "2032544088",
+    "유월의보리 방배점": "2063717777",
 }
 
 QUERY = """
@@ -40,7 +39,7 @@ def kst_now():
     return datetime.utcnow() + timedelta(hours=9)
 
 
-def fetch_reviews(store_name, place_id, size=20):
+def fetch_reviews(store_name, place_id, size=20, attempt=1):
     url = "https://pcmap-api.place.naver.com/graphql"
     place_url = f"https://pcmap.place.naver.com/restaurant/{place_id}/review/visitor?reviewSort=recent"
     user_agent = (
@@ -84,12 +83,7 @@ def fetch_reviews(store_name, place_id, size=20):
     cookie_jar = http.cookiejar.CookieJar()
     opener = request.build_opener(request.HTTPCookieProcessor(cookie_jar))
 
-    for attempt in range(1, 3):
-        if attempt > 1:
-            delay = random.uniform(20, 45)
-            print("리뷰 재시도 대기:", store_name, attempt, f"{delay:.1f}초")
-            time.sleep(delay)
-
+    for attempt in [attempt]:
         try:
             page_req = request.Request(
                 place_url,
@@ -176,9 +170,29 @@ def build_report():
         "",
     ]
 
+    results = {}
+    failed_stores = []
+
     for store_name, place_id in PLACE_IDS.items():
         try:
-            reviews = fetch_reviews(store_name, place_id)
+            results[store_name] = (fetch_reviews(store_name, place_id), None)
+        except Exception as e:
+            results[store_name] = (None, e)
+            failed_stores.append((store_name, place_id))
+
+    for store_name, place_id in failed_stores:
+        print("전체 매장 처리 후 마지막 재시도:", store_name)
+        try:
+            results[store_name] = (
+                fetch_reviews(store_name, place_id, attempt=2),
+                None,
+            )
+        except Exception as e:
+            results[store_name] = (None, e)
+
+    for store_name in PLACE_IDS:
+        reviews, error = results[store_name]
+        if error is None:
             yesterday_reviews = [
                 review["body"]
                 for review in reviews
@@ -192,10 +206,10 @@ def build_report():
             for idx, review in enumerate(yesterday_reviews[:10], start=1):
                 lines.append(f"{idx}. {review}")
 
-        except Exception as e:
+        else:
             lines.append(f"[{store_name}]")
             lines.append("최근 리뷰 조회: 실패")
-            lines.append(f"사유: {e}")
+            lines.append(f"사유: {error}")
 
         lines.append("")
 
