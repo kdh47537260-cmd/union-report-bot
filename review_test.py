@@ -18,8 +18,8 @@ CHAT_IDS = [
 ]
 
 PLACE_IDS = {
-    "유월의보리 본점": "1265080366",
     "유월의보리 양재점": "1889387567",
+    "유월의보리 본점": "1265080366",
     "유월의보리 신내점": "2021210260",
     "유월의보리 성남신흥점": "2032544088",
 }
@@ -30,11 +30,7 @@ query getVisitorReviews($input: VisitorReviewsInput) {
     items {
       body
       created
-      businessName
-      item { name }
-      author { nickname }
     }
-    total
   }
 }
 """
@@ -44,7 +40,7 @@ def kst_now():
     return datetime.utcnow() + timedelta(hours=9)
 
 
-def fetch_reviews(store_name, place_id, size=30):
+def fetch_reviews(store_name, place_id, size=20):
     url = "https://pcmap-api.place.naver.com/graphql"
     place_url = f"https://pcmap.place.naver.com/restaurant/{place_id}/review/visitor?reviewSort=recent"
     user_agent = (
@@ -88,7 +84,7 @@ def fetch_reviews(store_name, place_id, size=30):
     cookie_jar = http.cookiejar.CookieJar()
     opener = request.build_opener(request.HTTPCookieProcessor(cookie_jar))
 
-    for attempt in range(1, 4):
+    for attempt in range(1, 3):
         if attempt > 1:
             delay = random.uniform(20, 45)
             print("리뷰 재시도 대기:", store_name, attempt, f"{delay:.1f}초")
@@ -180,10 +176,7 @@ def build_report():
         "",
     ]
 
-    targets = list(PLACE_IDS.items())
-    random.shuffle(targets)
-
-    for store_name, place_id in targets:
+    for store_name, place_id in PLACE_IDS.items():
         try:
             reviews = fetch_reviews(store_name, place_id)
             yesterday_reviews = [
@@ -205,7 +198,6 @@ def build_report():
             lines.append(f"사유: {e}")
 
         lines.append("")
-        time.sleep(random.uniform(8, 18))
 
     return "\n".join(lines).strip()
 
