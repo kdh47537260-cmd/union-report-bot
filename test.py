@@ -331,6 +331,13 @@ def fetch_okpos():
     finally:
         driver.quit()
 
+# Railway가 main 커밋을 자동 배포해도 리포트를 발송하지 않습니다.
+# 매일 오전 7시 GitHub Actions 워크플로에서만 실행합니다.
+if os.getenv("GITHUB_ACTIONS", "").lower() != "true":
+    print("GitHub Actions 외 실행이므로 매출 리포트 발송을 생략합니다.")
+    raise SystemExit(0)
+
+
 all_store_data = {}
 
 all_store_data.update(fetch_okpos())
