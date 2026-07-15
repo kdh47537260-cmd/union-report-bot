@@ -27,17 +27,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Chromium
+      - name: Install Google Chrome
         run: |
           sudo apt-get update
-          sudo apt-get install -y chromium-browser chromium-chromedriver || \
-            sudo apt-get install -y chromium chromium-driver
+          sudo apt-get install -y google-chrome-stable
 
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
       - name: Collect sales and send Telegram report
         env:
-          CHROME_BIN: /snap/bin/chromium
-          CHROMEDRIVER: /usr/bin/chromedriver
+          CHROME_BIN: /usr/bin/google-chrome
         run: python test.py
