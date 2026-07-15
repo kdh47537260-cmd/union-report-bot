@@ -2,6 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from datetime import datetime, timedelta
 import calendar
+import os
 import requests
 import time
 
@@ -46,6 +47,7 @@ TABLE_COUNTS = {
 
 
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 
 def get_driver():
     options = Options()
@@ -56,6 +58,12 @@ def get_driver():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
 
+    chrome_bin = os.getenv("CHROME_BIN", "").strip()
+    driver_bin = os.getenv("CHROMEDRIVER", "").strip()
+    if chrome_bin:
+        options.binary_location = chrome_bin
+    if driver_bin:
+        return webdriver.Chrome(service=Service(driver_bin), options=options)
     return webdriver.Chrome(options=options)
 
     
