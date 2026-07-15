@@ -1,0 +1,40 @@
+name: Daily Sales Report
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 매일 오전 7시 KST (전날 22:00 UTC)
+    - cron: "0 22 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-sales-report
+  cancel-in-progress: false
+
+jobs:
+  send-sales-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Chromium
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser chromium-chromedriver || \
+            sudo apt-get install -y chromium chromium-driver
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Collect sales and send Telegram report
+        run: python test.py
