@@ -37,4 +37,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Collect sales and send Telegram report
+        env:
+          CHROME_BIN: /snap/bin/chromium
+          CHROMEDRIVER: /usr/bin/chromedriver
         run: python test.py
