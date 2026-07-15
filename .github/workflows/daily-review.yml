@@ -8,7 +8,6 @@ on:
         required: false
         type: string
   schedule:
-    # 매일 한국시간 09:10 (UTC 00:10)
     # 매일 오전 7시 KST (전날 22:00 UTC)
     - cron: "0 22 * * *"
 
