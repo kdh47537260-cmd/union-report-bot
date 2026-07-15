@@ -161,6 +161,7 @@ def build_report(target_date=None):
     target_date = target_date or (now - timedelta(days=1)).date()
     lines = [
         "[네이버 플레이스 리뷰 보고]",
+        "#경란 #대표님",
         f"실행시각: {now.strftime('%Y-%m-%d %H:%M:%S')} KST",
         f"조회기준: {target_date.isoformat()}",
         "요청범위: 매장별 최신 30건",
@@ -179,6 +180,7 @@ def build_report(target_date=None):
             lines.append(f"조회기준일 리뷰: {len(daily_reviews)}건")
             for index, review in enumerate(daily_reviews, start=1):
                 lines.append(f"{index}. {review['body']} ({review['created']})")
+                lines.append("")
             if not daily_reviews:
                 lines.append("해당 날짜에 작성된 리뷰 없음")
         except Exception as exc:
