@@ -161,7 +161,6 @@ def build_report(target_date=None):
     target_date = target_date or (now - timedelta(days=1)).date()
     lines = [
         "[네이버 플레이스 리뷰 보고]",
-        "#경란 #대표님",
         f"실행시각: {now.strftime('%Y-%m-%d %H:%M:%S')} KST",
         f"조회기준: {target_date.isoformat()}",
         "요청범위: 매장별 최신 30건",
